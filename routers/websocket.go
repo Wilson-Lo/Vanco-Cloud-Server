@@ -34,7 +34,7 @@ func WSSConnect(c *gin.Context) {
 					fmt.Println("Websocket Error : ", err)
 					break
 				}
-				fmt.Println("send back to http")
+				//handle websocket data by method
 				wsservice.DecodeMsg(ws, string(message))
 			}
 		}

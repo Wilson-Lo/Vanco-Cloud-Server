@@ -60,7 +60,7 @@ func SendMsgToMachine(serialNum, msg string) {
 	}
 }
 
-func SendResponseToDevice(etag string, cmd models.Command) {
+func SendResponseToHTTPRequest(etag string, cmd models.Command) {
    log.Println("SendResponseToDevice1")
 	if appG, ok := ginMap[etag]; ok {
 	log.Println("SendResponseToDevice2")

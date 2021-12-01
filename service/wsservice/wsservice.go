@@ -12,6 +12,7 @@ import (
 
 func DecodeMsg(ws *websocket.Conn, message string) {
 	var cmd models.Command
+	fmt.Println("msg = " , message)
 	if err := json.Unmarshal([]byte(message), &cmd); err != nil {
 		fmt.Println(err)
 		//logging.Info(err)
@@ -24,17 +25,18 @@ func DecodeMsg(ws *websocket.Conn, message string) {
 
     switch cmd.Method {
 
+    //add new websocket to list
 	case "connect":
-		  log.Println("pi3 connect to Cloud : ")
-          passervice.AddToWSList("wilson", ws)
+		  log.Println("pi3 connect to Cloud : ", cmd.To)
+          passervice.AddToWSList(cmd.To, ws)
 
 	case "cmd":
 	      log.Println("ready to send back to http ")
-		  passervice.SendResponseToDevice("wilson", cmd)
+		  passervice.SendResponseToHTTPRequest("wilson", cmd)
 
 	default:
 	     log.Println("default ")
 	     cmd.Time = "2021"
-         passervice.SendResponseToDevice("wilson", cmd)
+         passervice.SendResponseToHTTPRequest("wilson", cmd)
 	}
 }
