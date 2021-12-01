@@ -1,14 +1,16 @@
 package routers
 
 import (
+	e "app/pkg/e"
 	"encoding/json"
 	"fmt"
-	//"os"
+	"crypto/md5"
 	"app/models"
 	"net/mail"
 	"net/http"
-	"app/pkg/app"
+    "app/pkg/app"
 	"time"
+	"io"
 	"github.com/gin-gonic/gin"
 	"database/sql"
     "github.com/go-sql-driver/mysql"
@@ -76,7 +78,7 @@ func CreateAccount(c *gin.Context){
 
 	if err != nil {
 	    fmt.Println("parse json failed")
-		cmd.Body = "{\"result\": \"Failed\" , \"message\": \" Unexpected error occurred !\"}"
+		cmd.Body = "{\"result\": \"" + e.FAILURE + "\" , \"message\": \" Unexpected error occurred !\"}"
 		appG.Response(http.StatusInternalServerError, cmd)
 		return
 	}
@@ -88,7 +90,7 @@ func CreateAccount(c *gin.Context){
 
     //Valid E-mail
     if(!validEmail(accountInfo.Account)){
-       cmd.Body = "{\"result\": \"Failed\" , \"message\": \" Email address not correct !\"}"
+       cmd.Body = "{\"result\": \"" + e.FAILURE + "\" , \"message\": \" Email address not correct !\"}"
        appG.Response(http.StatusOK, cmd)
        return
     }
@@ -106,7 +108,7 @@ func CreateAccount(c *gin.Context){
     db.SetMaxIdleConns(10)
 
     //check email is not register before
-    fmt.Println("SELECT * FROM users WHERE account = '" + accountInfo.Account + "'")
+   // fmt.Println("SELECT * FROM users WHERE account = '" + accountInfo.Account + "'")
 	sql := fmt.Sprintf("SELECT * FROM users WHERE account = '" + accountInfo.Account + "'")
     rows, err := db.Query(sql)
     if err != nil {
@@ -122,22 +124,23 @@ func CreateAccount(c *gin.Context){
 
     if(!isEmailUsed){
        //add new account to DB
+       var pwMD5 = ToMD5(accountInfo.Password)
        cmd.Body = "successful"
        dt := time.Now()
        formatted := fmt.Sprintf("%d-%02d-%02d %02d:%02d:%02d",
                dt.Year(), dt.Month(), dt.Day(),
                dt.Hour(), dt.Minute(), dt.Second())
      //  fmt.Println("INSERT INTO users (account, password, role, time) VALUES (\"" + accountInfo.Account + "\", \"" + accountInfo.Password + "\", 2, \""+ formatted +"\")")
-       _, err := db.Exec("INSERT INTO users (account, password, role, time) VALUES (\"" + accountInfo.Account + "\", \"" + accountInfo.Password + "\", 2, \""+ formatted +"\")")
+       _, err := db.Exec("INSERT INTO users (account, password, role, time) VALUES (\"" + accountInfo.Account + "\", \"" + pwMD5 + "\", 2, \""+ formatted +"\")")
        if err != nil {
-       		cmd.Body = "{\"result\": \"Failed\" , \"message\": \" Add new account failed\"}"
+       		cmd.Body = "{\"result\": \"" + e.SUCCESS + "\" , \"message\": \" Add new account failed\"}"
        		appG.Response(http.StatusOK, cmd)
        		return
        }
-       cmd.Body = "{\"result\": \"OK\" , \"message\": \" Add new account successful\"}"
+       cmd.Body = "{\"result\": \"" + e.SUCCESS + "\" , \"message\": \" Add new account successful\"}"
        appG.Response(http.StatusOK, cmd)
     }else{
-       cmd.Body = "{\"result\": \"Failed\" , \"message\": \" This E-Mail has been registered\"}"
+       cmd.Body = "{\"result\": \"" + e.FAILURE + "\" , \"message\": \" This E-Mail has been registered\"}"
        appG.Response(http.StatusOK, cmd)
     }
 }
@@ -146,4 +149,12 @@ func CreateAccount(c *gin.Context){
 func validEmail(email string) bool {
     _, err := mail.ParseAddress(email)
     return err == nil
+}
+
+//string to MD5
+func ToMD5(str string) string  {
+    w := md5.New()
+    io.WriteString(w, str)
+    md5str := fmt.Sprintf("%x", w.Sum(nil))
+    return md5str
 }
