@@ -2,6 +2,7 @@ package routers
 
 import (
 	e "app/pkg/e"
+	b64 "encoding/base64"
 	"encoding/json"
 	"fmt"
 	"crypto/md5"
@@ -10,6 +11,7 @@ import (
 	"net/http"
     "app/pkg/app"
 	"time"
+	"strings"
 	"io"
 	"github.com/gin-gonic/gin"
 	"database/sql"
@@ -77,13 +79,11 @@ func CreateAccount(c *gin.Context){
 	err := c.BindJSON(&cmd)
 
 	if err != nil {
-	    fmt.Println("parse json failed")
 		cmd.Body = "{\"result\": \"" + e.FAILURE + "\" , \"message\": \" Unexpected error occurred !\"}"
 		appG.Response(http.StatusInternalServerError, cmd)
 		return
 	}
 
-    cmd.To = ""
     //get new account info
 	var accountInfo = models.CmdCreateAccount{}
     json.Unmarshal([]byte(string(cmd.Body)), &accountInfo)
@@ -141,6 +141,86 @@ func CreateAccount(c *gin.Context){
        appG.Response(http.StatusOK, cmd)
     }else{
        cmd.Body = "{\"result\": \"" + e.FAILURE + "\" , \"message\": \" This E-Mail has been registered\"}"
+       appG.Response(http.StatusOK, cmd)
+    }
+}
+
+
+//login account
+func LoginAccount(c *gin.Context){
+
+    appG := app.Gin{C: c}
+    var cmd models.Command
+	err := c.BindJSON(&cmd)
+
+	if err != nil {
+		cmd.Body = "{\"result\": \"" + e.FAILURE + "\" , \"message\": \" Unexpected error occurred !\"}"
+		appG.Response(http.StatusInternalServerError, cmd)
+		return
+	}
+
+    var allData = "body="+cmd.Body+"&etag="+cmd.Etag+"&extra="+cmd.Extra+"&method="+cmd.Method+"&time="+cmd.Time+"&to="+cmd.To
+    var sign = ToMD5(allData)
+
+    if(strings.Compare(sign, cmd.Sign) == 0){
+        fmt.Println("Sign is correct !")
+    }else{
+       cmd.Body = "{\"result\": \"" + e.FAILURE + "\" , \"message\": \" Unexpected error occurred !\"}"
+       appG.Response(http.StatusInternalServerError, cmd)
+       return
+    }
+
+    var bodyData = strings.ReplaceAll(cmd.Body, "goaamaxa", "")
+    bodyData = strings.ReplaceAll(bodyData, "erwrewqweasd", "")
+    fmt.Println("bodyData = " + bodyData)
+    bytes, err := b64.StdEncoding.DecodeString(bodyData)
+
+	//get login info
+    var loginInfo = models.CmdCreateAccount{}
+    json.Unmarshal(bytes, &loginInfo)
+    //fmt.Println("loginInfo = " + string(loginInfo))
+    fmt.Println("account = " + loginInfo.Account + " - password = " + loginInfo.Password )
+    // Create the database handle, confirm driver is present
+    db, err := sql.Open("mysql", cfg.FormatDSN())
+    if(err != nil){
+        fmt.Println("Connect to DB Failed !")
+    }
+    defer db.Close()
+
+	sql := fmt.Sprintf("SELECT * FROM users WHERE account = '" + loginInfo.Account + "';")
+    rows, err := db.Query(sql)
+    if err != nil {
+       fmt.Println("SQLite occur error : " + err.Error())
+       return
+    }
+    defer rows.Close()
+
+    var  id int
+    var  accounts string
+    var  password string
+    var  role int
+    var  time string
+
+    if(rows.Next()) {
+        err := rows.Scan(&id, &accounts, &password, &role, &time)
+        if err != nil {
+           cmd.Body = "{\"result\": \"" + e.FAILURE + "\" , \"message\": \" Query DB error !\"}"
+           appG.Response(http.StatusInternalServerError, cmd)
+           return
+        }
+
+       //check password
+       var userEnterPassword = ToMD5(loginInfo.Password)
+       if(strings.Compare(userEnterPassword, password) == 0){
+           cmd.Body = "{\"result\": \"" + e.SUCCESS + "\" , \"message\": \" Login Successful !\"}"
+           appG.Response(http.StatusOK, cmd)
+       }else{
+          cmd.Body = "{\"result\": \"" + e.FAILURE + "\" , \"message\": \" Passsword not correct !\"}"
+          appG.Response(http.StatusOK, cmd)
+       }
+    }else{
+       //account not exist
+       cmd.Body = "{\"result\": \"" + e.FAILURE + "\" , \"message\": \" Account not exist !\"}"
        appG.Response(http.StatusOK, cmd)
     }
 }
