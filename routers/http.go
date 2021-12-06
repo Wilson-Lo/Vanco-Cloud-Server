@@ -159,8 +159,7 @@ func LoginAccount(c *gin.Context){
 		return
 	}
 
-    var allData = "body="+cmd.Body+"&etag="+cmd.Etag+"&extra="+cmd.Extra+"&method="+cmd.Method+"&time="+cmd.Time+"&to="+cmd.To
-    var sign = ToMD5(allData)
+    var sign = getSign(cmd)
 
     if(strings.Compare(sign, cmd.Sign) == 0){
         fmt.Println("Sign is correct !")
@@ -170,9 +169,8 @@ func LoginAccount(c *gin.Context){
        return
     }
 
-    var bodyData = strings.ReplaceAll(cmd.Body, "goaamaxa", "")
-    bodyData = strings.ReplaceAll(bodyData, "erwrewqweasd", "")
-    fmt.Println("bodyData = " + bodyData)
+    var bodyData = strings.ReplaceAll(cmd.Body, e.SaltFirst, "")
+    bodyData = strings.ReplaceAll(bodyData, e.SaltAfter, "")
     bytes, err := b64.StdEncoding.DecodeString(bodyData)
 
 	//get login info
@@ -204,7 +202,8 @@ func LoginAccount(c *gin.Context){
     if(rows.Next()) {
         err := rows.Scan(&id, &accounts, &password, &role, &time)
         if err != nil {
-           cmd.Body = "{\"result\": \"" + e.FAILURE + "\" , \"message\": \" Query DB error !\"}"
+           cmd.Body = encryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \"Account or Password not correct !\"}")
+           cmd.Sign = getSign(cmd)
            appG.Response(http.StatusInternalServerError, cmd)
            return
         }
@@ -212,15 +211,18 @@ func LoginAccount(c *gin.Context){
        //check password
        var userEnterPassword = ToMD5(loginInfo.Password)
        if(strings.Compare(userEnterPassword, password) == 0){
-           cmd.Body = "{\"result\": \"" + e.SUCCESS + "\" , \"message\": \" Login Successful !\"}"
-           appG.Response(http.StatusOK, cmd)
+          cmd.Body = encryptionData("{\"result\": \"" + e.SUCCESS + "\" , \"message\": \"Login Successful !\"}")
+          cmd.Sign = getSign(cmd)
+          appG.Response(http.StatusOK, cmd)
        }else{
-          cmd.Body = "{\"result\": \"" + e.FAILURE + "\" , \"message\": \" Passsword not correct !\"}"
+          cmd.Body = encryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \"Account or Password not correct !\"}")
+          cmd.Sign = getSign(cmd)
           appG.Response(http.StatusOK, cmd)
        }
     }else{
        //account not exist
-       cmd.Body = "{\"result\": \"" + e.FAILURE + "\" , \"message\": \" Account not exist !\"}"
+       cmd.Body = encryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \"Account or Password not correct !\"}")
+       cmd.Sign = getSign(cmd)
        appG.Response(http.StatusOK, cmd)
     }
 }
@@ -237,4 +239,21 @@ func ToMD5(str string) string  {
     io.WriteString(w, str)
     md5str := fmt.Sprintf("%x", w.Sum(nil))
     return md5str
+}
+
+/**
+*    Base64 + Salt
+*/
+func encryptionData(bodyData string) string{
+     base64String := b64.StdEncoding.EncodeToString([]byte(bodyData))
+     fmt.Println("base64String = ", base64String)
+     return (e.SaltFirst + base64String + e.SaltAfter)
+}
+
+/**
+*  Get sign value
+*/
+func getSign(data models.Command) string{
+     var allData = "body="+data.Body+"&etag="+data.Etag+"&extra="+data.Extra+"&method="+data.Method+"&time="+data.Time+"&to="+data.To
+     return ToMD5(allData)
 }
