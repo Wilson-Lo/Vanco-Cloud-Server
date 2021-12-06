@@ -79,18 +79,37 @@ func CreateAccount(c *gin.Context){
 	err := c.BindJSON(&cmd)
 
 	if err != nil {
-		cmd.Body = "{\"result\": \"" + e.FAILURE + "\" , \"message\": \" Unexpected error occurred !\"}"
-		appG.Response(http.StatusInternalServerError, cmd)
+        cmd.Body = encryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \" Unexpected error occurred !\"}")
+        cmd.Sign = getSign(cmd)
+        appG.Response(http.StatusOK, cmd)
 		return
 	}
 
+
+	 var sign = getSign(cmd)
+
+     //check sign value
+     if(strings.Compare(sign, cmd.Sign) == 0){
+        fmt.Println("Sign is correct !")
+     }else{
+        cmd.Body = encryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \" Unexpected error occurred !\"}")
+        cmd.Sign = getSign(cmd)
+        appG.Response(http.StatusOK, cmd)
+        return
+     }
+
+     var bodyData = strings.ReplaceAll(cmd.Body, e.SaltFirst, "")
+     bodyData = strings.ReplaceAll(bodyData, e.SaltAfter, "")
+     bytes, err := b64.StdEncoding.DecodeString(bodyData)
+
     //get new account info
 	var accountInfo = models.CmdCreateAccount{}
-    json.Unmarshal([]byte(string(cmd.Body)), &accountInfo)
+    json.Unmarshal(bytes, &accountInfo)
 
     //Valid E-mail
     if(!validEmail(accountInfo.Account)){
-       cmd.Body = "{\"result\": \"" + e.FAILURE + "\" , \"message\": \" Email address not correct !\"}"
+       cmd.Body = encryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \" Email address format not correct !\"}")
+       cmd.Sign = getSign(cmd)
        appG.Response(http.StatusOK, cmd)
        return
     }
@@ -133,14 +152,18 @@ func CreateAccount(c *gin.Context){
      //  fmt.Println("INSERT INTO users (account, password, role, time) VALUES (\"" + accountInfo.Account + "\", \"" + accountInfo.Password + "\", 2, \""+ formatted +"\")")
        _, err := db.Exec("INSERT INTO users (account, password, role, time) VALUES (\"" + accountInfo.Account + "\", \"" + pwMD5 + "\", 2, \""+ formatted +"\")")
        if err != nil {
-       		cmd.Body = "{\"result\": \"" + e.SUCCESS + "\" , \"message\": \" Add new account failed\"}"
-       		appG.Response(http.StatusOK, cmd)
+       		cmd.Body = encryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \" Add new account failed\"}")
+            cmd.Sign = getSign(cmd)
+            appG.Response(http.StatusOK, cmd)
        		return
        }
-       cmd.Body = "{\"result\": \"" + e.SUCCESS + "\" , \"message\": \" Add new account successful\"}"
+
+       cmd.Body = encryptionData("{\"result\": \"" + e.SUCCESS + "\" , \"message\": \"Register Successful !\"}")
+       cmd.Sign = getSign(cmd)
        appG.Response(http.StatusOK, cmd)
     }else{
-       cmd.Body = "{\"result\": \"" + e.FAILURE + "\" , \"message\": \" This E-Mail has been registered\"}"
+       cmd.Body = encryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \" This E-Mail has been registered\"}")
+       cmd.Sign = getSign(cmd)
        appG.Response(http.StatusOK, cmd)
     }
 }
@@ -154,8 +177,9 @@ func LoginAccount(c *gin.Context){
 	err := c.BindJSON(&cmd)
 
 	if err != nil {
-		cmd.Body = "{\"result\": \"" + e.FAILURE + "\" , \"message\": \" Unexpected error occurred !\"}"
-		appG.Response(http.StatusInternalServerError, cmd)
+       cmd.Body = encryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \" Unexpected error occurred !\"}")
+       cmd.Sign = getSign(cmd)
+       appG.Response(http.StatusOK, cmd)
 		return
 	}
 
@@ -164,8 +188,9 @@ func LoginAccount(c *gin.Context){
     if(strings.Compare(sign, cmd.Sign) == 0){
         fmt.Println("Sign is correct !")
     }else{
-       cmd.Body = "{\"result\": \"" + e.FAILURE + "\" , \"message\": \" Unexpected error occurred !\"}"
-       appG.Response(http.StatusInternalServerError, cmd)
+       cmd.Body = encryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \" Unexpected error occurred !\"}")
+       cmd.Sign = getSign(cmd)
+       appG.Response(http.StatusOK, cmd)
        return
     }
 
