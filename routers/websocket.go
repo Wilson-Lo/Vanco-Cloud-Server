@@ -25,6 +25,11 @@ func WSSConnect(c *gin.Context) {
 	defer ws.Close()
 	for {
 		_, message, err := ws.ReadMessage()
+		if err != nil{
+		   fmt.Println("Websocket read error = ", err.Error())
+		   return
+		}
+
 		if string(message) != "" {
 
 			if strings.ToLower(string(message)) == "ping" {

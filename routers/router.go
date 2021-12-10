@@ -3,9 +3,13 @@ package routers
 import (
 	"github.com/gin-gonic/gin"
 	"net/http"
+ //   "os"
+   // "fmt"
+   //  myMail "app/pkg/app"
 )
 
 func InitRouter() *gin.Engine{
+
    	router := gin.New()
    	router.Use(gin.Logger())
    	router.Use(gin.Recovery())
@@ -19,6 +23,15 @@ func InitRouter() *gin.Engine{
 	router.POST("/create_account", CreateAccount)
 	/** Login Account **/
     router.POST("/login_account", LoginAccount)
+   //  mailTo := []string {
+    //    "lowilson180@gmail.com",
+      //  }
+       //郵件主題為"Hello"
+     //   subject := "Hello"
+       // 郵件正文
+      //  body := "Good"
+  //  myMail.SendMail(mailTo, subject, body)
+   // myMail.SendMailTest()
 	return router
 }
 

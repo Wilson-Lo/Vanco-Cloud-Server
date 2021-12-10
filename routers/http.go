@@ -3,6 +3,7 @@ package routers
 import (
 	e "app/pkg/e"
 	b64 "encoding/base64"
+	jwt "app/pkg/jwt"
 	"encoding/json"
 	"fmt"
 	"crypto/md5"
@@ -30,6 +31,7 @@ var cfg = mysql.Config{
 }
 
 func Connect(c *gin.Context) {
+
     appG := app.Gin{C: c}
 	var cmd models.Command
 	err := c.BindJSON(&cmd)
@@ -236,7 +238,12 @@ func LoginAccount(c *gin.Context){
        //check password
        var userEnterPassword = ToMD5(loginInfo.Password)
        if(strings.Compare(userEnterPassword, password) == 0){
-          cmd.Body = encryptionData("{\"result\": \"" + e.SUCCESS + "\" , \"message\": \"Login Successful !\"}")
+          token, err := jwt.CreateToken(uint64(id))
+          if(err != nil){
+            fmt.Println("create token error : ", err.Error())
+          }
+          fmt.Println("token : ", token)
+          cmd.Body = encryptionData("{\"result\": \"" + e.SUCCESS + "\" , \"message\": \"Login Successful !\" , \"token\": \"" + token + "\"}")
           cmd.Sign = getSign(cmd)
           appG.Response(http.StatusOK, cmd)
        }else{
