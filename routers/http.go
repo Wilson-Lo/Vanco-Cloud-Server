@@ -6,6 +6,7 @@ import (
     myMail "app/pkg/app"
     myTool "app/pkg/tool"
     passervice "app/service/passervice"
+    db "app/pkg/db"
 	//jwt "app/pkg/jwt"
 	"encoding/json"
 	"fmt"
@@ -16,18 +17,7 @@ import (
 	"strings"
 	"github.com/gin-gonic/gin"
 	"database/sql"
-    "github.com/go-sql-driver/mysql"
 )
-
-//mariaDB Config
-var cfg = mysql.Config{
-        User:   "WilsonLo",
-        Passwd:  "Xjij0vu;;",
-        Net:    "tcp",
-        Addr:   "127.0.0.1:3306",
-        DBName: "db_user",
-        AllowNativePasswords: true,
-}
 
 func Connect(c *gin.Context) {
 
@@ -116,7 +106,7 @@ func CreateAccount(c *gin.Context){
     }
 
     // Create the database handle, confirm driver is present
-	db, err := sql.Open("mysql", cfg.FormatDSN())
+	db, err := sql.Open("mysql", db.Cfg.FormatDSN())
 	if(err != nil){
 	   fmt.Println("Connect to DB Failed !")
 	   defer db.Close()
@@ -205,7 +195,7 @@ func LoginAccount(c *gin.Context){
     //fmt.Println("loginInfo = " + string(loginInfo))
     fmt.Println("account = " + loginInfo.Account + " - password = " + loginInfo.Password )
     // Create the database handle, confirm driver is present
-    db, err := sql.Open("mysql", cfg.FormatDSN())
+    db, err := sql.Open("mysql", db.Cfg.FormatDSN())
     if(err != nil){
         fmt.Println("Connect to DB Failed !")
     }
@@ -301,7 +291,7 @@ func ForgotPassword(c *gin.Context){
     //fmt.Println("loginInfo = " + string(loginInfo))
     fmt.Println("account = " + accountInfo.Account)
     // Create the database handle, confirm driver is present
-    db, err := sql.Open("mysql", cfg.FormatDSN())
+    db, err := sql.Open("mysql", db.Cfg.FormatDSN())
     if(err != nil){
         fmt.Println("Connect to DB Failed !")
     }
@@ -319,22 +309,62 @@ func ForgotPassword(c *gin.Context){
     var  accounts string
     var  password string
     var  role int
-    var  time string
+    var  times string
 
     if(rows.Next()) {
-        err := rows.Scan(&id, &accounts, &password, &role, &time)
+        err := rows.Scan(&id, &accounts, &password, &role, &times)
         if err != nil {
            cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \" Unexpected error occurred !\"}")
            cmd.Sign = getSign(cmd)
            appG.Response(http.StatusInternalServerError, cmd)
            return
         }
-        fmt.Println("prepare to create token")
-        myMail.SendMail(accountInfo.Account, "Hi Test Reset password mail link !")
+
+        //create token
+        var newToken = myTool.RandStringBytes(16)
+        fmt.Println("create new token = " + newToken)
+        //save token
+        var url = "https://x-space.cloud/asset/html/reset_password.html?account=" + accountInfo.Account + "&token=" + newToken
+        sql := ("SELECT * FROM reset_tickets WHERE account = '" + accountInfo.Account + "';")
+        tickets_row, err := db.Query(sql)
+        if err != nil {
+           fmt.Println("query error = "+ err.Error())
+           cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \" Unexpected error occurred !\"}")
+           cmd.Sign = getSign(cmd)
+           appG.Response(http.StatusInternalServerError, cmd)
+           return
+        }
+        defer tickets_row.Close()
+        dt := time.Now().Format("2006-01-02 15:04:05")
+        //check has token before?
+        if(tickets_row.Next()) {
+          fmt.Println("old one to forgot")
+          //delete old token
+           _, err := db.Exec("DELETE FROM reset_tickets WHERE account = '" + accountInfo.Account + "';")
+           if err != nil {
+             fmt.Println("delete token error = " + err.Error())
+             cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \" Unexpected error occurred ! \"}")
+             cmd.Sign = getSign(cmd)
+             appG.Response(http.StatusOK, cmd)
+             return
+           }
+        }
+
+       //save new token to db
+       _, err1 := db.Exec("INSERT INTO reset_tickets (account, token_hash, time, token_used) VALUES (?, ?, ?, ?)", accountInfo.Account, myTool.ToMD5(newToken), dt,  []byte{0})
+       if err1 != nil {
+            fmt.Println("add new  token error = " + err1.Error())
+            cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \" Unexpected error occurred ! \"}")
+            cmd.Sign = getSign(cmd)
+            appG.Response(http.StatusOK, cmd)
+            return
+        }
+        //feedback http request
         cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.SUCCESS + "\" , \"message\": \"The reset password link is sent to your mail !\"}")
         cmd.Sign = getSign(cmd)
         appG.Response(http.StatusOK, cmd)
-
+        //send reset password link
+        myMail.SendMail(accountInfo.Account, url)
     }else{
        //account not exist
        cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \"Account is not exist !\"}")
