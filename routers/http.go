@@ -3,21 +3,20 @@ package routers
 import (
 	e "app/pkg/e"
 	b64 "encoding/base64"
-	jwt "app/pkg/jwt"
+    myMail "app/pkg/app"
+    myTool "app/pkg/tool"
+    passervice "app/service/passervice"
+	//jwt "app/pkg/jwt"
 	"encoding/json"
 	"fmt"
-	"crypto/md5"
 	"app/models"
-	"net/mail"
 	"net/http"
     "app/pkg/app"
 	"time"
 	"strings"
-	"io"
 	"github.com/gin-gonic/gin"
 	"database/sql"
     "github.com/go-sql-driver/mysql"
-	 passervice "app/service/passervice"
 )
 
 //mariaDB Config
@@ -81,7 +80,7 @@ func CreateAccount(c *gin.Context){
 	err := c.BindJSON(&cmd)
 
 	if err != nil {
-        cmd.Body = encryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \" Unexpected error occurred !\"}")
+        cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \" Unexpected error occurred !\"}")
         cmd.Sign = getSign(cmd)
         appG.Response(http.StatusOK, cmd)
 		return
@@ -94,7 +93,7 @@ func CreateAccount(c *gin.Context){
      if(strings.Compare(sign, cmd.Sign) == 0){
         fmt.Println("Sign is correct !")
      }else{
-        cmd.Body = encryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \" Unexpected error occurred !\"}")
+        cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \" Unexpected error occurred !\"}")
         cmd.Sign = getSign(cmd)
         appG.Response(http.StatusOK, cmd)
         return
@@ -109,8 +108,8 @@ func CreateAccount(c *gin.Context){
     json.Unmarshal(bytes, &accountInfo)
 
     //Valid E-mail
-    if(!validEmail(accountInfo.Account)){
-       cmd.Body = encryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \" Email address format not correct !\"}")
+    if(!myTool.ValidEmail(accountInfo.Account)){
+       cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \" Email address format not correct !\"}")
        cmd.Sign = getSign(cmd)
        appG.Response(http.StatusOK, cmd)
        return
@@ -145,7 +144,7 @@ func CreateAccount(c *gin.Context){
 
     if(!isEmailUsed){
        //add new account to DB
-       var pwMD5 = ToMD5(accountInfo.Password)
+       var pwMD5 = myTool.ToMD5(accountInfo.Password)
        cmd.Body = "successful"
        dt := time.Now()
        formatted := fmt.Sprintf("%d-%02d-%02d %02d:%02d:%02d",
@@ -154,17 +153,17 @@ func CreateAccount(c *gin.Context){
      //  fmt.Println("INSERT INTO users (account, password, role, time) VALUES (\"" + accountInfo.Account + "\", \"" + accountInfo.Password + "\", 2, \""+ formatted +"\")")
        _, err := db.Exec("INSERT INTO users (account, password, role, time) VALUES (\"" + accountInfo.Account + "\", \"" + pwMD5 + "\", 2, \""+ formatted +"\")")
        if err != nil {
-       		cmd.Body = encryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \" Add new account failed\"}")
+       		cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \" Add new account failed\"}")
             cmd.Sign = getSign(cmd)
             appG.Response(http.StatusOK, cmd)
        		return
        }
 
-       cmd.Body = encryptionData("{\"result\": \"" + e.SUCCESS + "\" , \"message\": \"Register Successful !\"}")
+       cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.SUCCESS + "\" , \"message\": \"Register Successful !\"}")
        cmd.Sign = getSign(cmd)
        appG.Response(http.StatusOK, cmd)
     }else{
-       cmd.Body = encryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \" This E-Mail has been registered\"}")
+       cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \" This E-Mail has been registered\"}")
        cmd.Sign = getSign(cmd)
        appG.Response(http.StatusOK, cmd)
     }
@@ -179,7 +178,7 @@ func LoginAccount(c *gin.Context){
 	err := c.BindJSON(&cmd)
 
 	if err != nil {
-       cmd.Body = encryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \" Unexpected error occurred !\"}")
+       cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \" Unexpected error occurred !\"}")
        cmd.Sign = getSign(cmd)
        appG.Response(http.StatusOK, cmd)
 		return
@@ -190,7 +189,7 @@ func LoginAccount(c *gin.Context){
     if(strings.Compare(sign, cmd.Sign) == 0){
         fmt.Println("Sign is correct !")
     }else{
-       cmd.Body = encryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \" Unexpected error occurred !\"}")
+       cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \" Unexpected error occurred !\"}")
        cmd.Sign = getSign(cmd)
        appG.Response(http.StatusOK, cmd)
        return
@@ -229,57 +228,34 @@ func LoginAccount(c *gin.Context){
     if(rows.Next()) {
         err := rows.Scan(&id, &accounts, &password, &role, &time)
         if err != nil {
-           cmd.Body = encryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \"Account or Password not correct !\"}")
+           cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \"Account or Password not correct !\"}")
            cmd.Sign = getSign(cmd)
            appG.Response(http.StatusInternalServerError, cmd)
            return
         }
 
        //check password
-       var userEnterPassword = ToMD5(loginInfo.Password)
+       var userEnterPassword = myTool.ToMD5(loginInfo.Password)
        if(strings.Compare(userEnterPassword, password) == 0){
-          token, err := jwt.CreateToken(uint64(id))
-          if(err != nil){
-            fmt.Println("create token error : ", err.Error())
-          }
-          fmt.Println("token : ", token)
-          cmd.Body = encryptionData("{\"result\": \"" + e.SUCCESS + "\" , \"message\": \"Login Successful !\" , \"token\": \"" + token + "\"}")
+         // token, err := jwt.CreateToken(uint64(id))
+        //  if(err != nil){
+         //   fmt.Println("create token error : ", err.Error())
+         // }
+       //   fmt.Println("token : ", token)
+          cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.SUCCESS + "\" , \"message\": \"Login Successful !\" , \"token\": \"" + "token" + "\"}")
           cmd.Sign = getSign(cmd)
           appG.Response(http.StatusOK, cmd)
        }else{
-          cmd.Body = encryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \"Account or Password not correct !\"}")
+          cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \"Account or Password not correct !\"}")
           cmd.Sign = getSign(cmd)
           appG.Response(http.StatusOK, cmd)
        }
     }else{
        //account not exist
-       cmd.Body = encryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \"Account or Password not correct !\"}")
+       cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \"Account or Password not correct !\"}")
        cmd.Sign = getSign(cmd)
        appG.Response(http.StatusOK, cmd)
     }
-}
-
-//Valid E-mail
-func validEmail(email string) bool {
-    _, err := mail.ParseAddress(email)
-    return err == nil
-}
-
-//string to MD5
-func ToMD5(str string) string  {
-    w := md5.New()
-    io.WriteString(w, str)
-    md5str := fmt.Sprintf("%x", w.Sum(nil))
-    return md5str
-}
-
-/**
-*    Base64 + Salt
-*/
-func encryptionData(bodyData string) string{
-     base64String := b64.StdEncoding.EncodeToString([]byte(bodyData))
-     fmt.Println("base64String = ", base64String)
-     return (e.SaltFirst + base64String + e.SaltAfter)
 }
 
 /**
@@ -287,5 +263,82 @@ func encryptionData(bodyData string) string{
 */
 func getSign(data models.Command) string{
      var allData = "body="+data.Body+"&etag="+data.Etag+"&extra="+data.Extra+"&method="+data.Method+"&time="+data.Time+"&to="+data.To
-     return ToMD5(allData)
+     return myTool.ToMD5(allData)
+}
+
+//forgot password
+func ForgotPassword(c *gin.Context){
+
+    appG := app.Gin{C: c}
+    var cmd models.Command
+	err := c.BindJSON(&cmd)
+
+	if err != nil {
+       cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \" Unexpected error occurred !\"}")
+       cmd.Sign = getSign(cmd)
+       appG.Response(http.StatusOK, cmd)
+		return
+	}
+
+    var sign = getSign(cmd)
+
+    if(strings.Compare(sign, cmd.Sign) == 0){
+        fmt.Println("Sign is correct !")
+    }else{
+       cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \" Unexpected error occurred !\"}")
+       cmd.Sign = getSign(cmd)
+       appG.Response(http.StatusOK, cmd)
+       return
+    }
+
+    var bodyData = strings.ReplaceAll(cmd.Body, e.SaltFirst, "")
+    bodyData = strings.ReplaceAll(bodyData, e.SaltAfter, "")
+    bytes, err := b64.StdEncoding.DecodeString(bodyData)
+
+	//get account
+    var accountInfo = models.CmdForgotPassowrd{}
+    json.Unmarshal(bytes, &accountInfo)
+    //fmt.Println("loginInfo = " + string(loginInfo))
+    fmt.Println("account = " + accountInfo.Account)
+    // Create the database handle, confirm driver is present
+    db, err := sql.Open("mysql", cfg.FormatDSN())
+    if(err != nil){
+        fmt.Println("Connect to DB Failed !")
+    }
+    defer db.Close()
+
+	sql := fmt.Sprintf("SELECT * FROM users WHERE account = '" + accountInfo.Account + "';")
+    rows, err := db.Query(sql)
+    if err != nil {
+       fmt.Println("SQLite occur error : " + err.Error())
+       return
+    }
+    defer rows.Close()
+
+    var  id int
+    var  accounts string
+    var  password string
+    var  role int
+    var  time string
+
+    if(rows.Next()) {
+        err := rows.Scan(&id, &accounts, &password, &role, &time)
+        if err != nil {
+           cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \" Unexpected error occurred !\"}")
+           cmd.Sign = getSign(cmd)
+           appG.Response(http.StatusInternalServerError, cmd)
+           return
+        }
+        fmt.Println("prepare to create token")
+        myMail.SendMail(accountInfo.Account, "Hi Test Reset password mail link !")
+        cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.SUCCESS + "\" , \"message\": \"The reset password link is sent to your mail !\"}")
+        cmd.Sign = getSign(cmd)
+        appG.Response(http.StatusOK, cmd)
+
+    }else{
+       //account not exist
+       cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \"Account is not exist !\"}")
+       cmd.Sign = getSign(cmd)
+       appG.Response(http.StatusOK, cmd)
+    }
 }

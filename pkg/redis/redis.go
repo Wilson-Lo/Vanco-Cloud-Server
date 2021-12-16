@@ -7,7 +7,7 @@ import (
   //"github.com/twinj/uuid"
 )
 
-var  client *redis.Client
+var  Client *redis.Client
 
 /**
 *  Init Redis
@@ -20,11 +20,12 @@ func InitRedis() {
      dsn = "localhost:6379"
   }
 
-  client = redis.NewClient(&redis.Options{
+  Client = redis.NewClient(&redis.Options{
      Addr: dsn, //redis port
   })
-  _, err := client.Ping(client.Context()).Result()
+  _, err := Client.Ping(Client.Context()).Result()
   if err != nil {
+     fmt.Println("init redis failed !")
      panic(err)
   }
 }

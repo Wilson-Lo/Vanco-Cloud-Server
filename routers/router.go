@@ -23,6 +23,10 @@ func InitRouter() *gin.Engine{
 	router.POST("/create_account", CreateAccount)
 	/** Login Account **/
     router.POST("/login_account", LoginAccount)
+    /** Forgot Password **/
+    router.POST("/forgot_password", ForgotPassword)
+
+
    //  mailTo := []string {
     //    "lowilson180@gmail.com",
       //  }

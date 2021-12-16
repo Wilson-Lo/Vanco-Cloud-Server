@@ -20,93 +20,12 @@ var password = "T6ba_4u4"
 var smtpHost = "mse.gomax-electronics.com.tw"
 var smtpPort = "25"
 
-func SendResetPWMail(){
-  fmt.Println("SendResetPWMail!")
- // Receiver email address.
-  to := []string{
-    "lowilson180@gmail.com",
-  }
-  fmt.Println("SendResetPWMail222222222")
-  // Message.
-  message := []byte("This is a test email message.")
-  fmt.Println("SendResetPWMail333333333")
-  // Authentication.
-  auth := smtp.PlainAuth("", from, password, smtpHost)
-  // Sending email.
-  fmt.Println("SendResetPWMail444444444")
-  err := smtp.SendMail(smtpHost+":"+smtpPort, auth, from, to, message)
-   fmt.Println("SendResetPWMail555555555")
-  if err != nil {
-    fmt.Println("error = ", err)
-    return
-  }
+func SendMail(userMail string, url_link string){
 
-  fmt.Println("Email Sent Successfully!")
-}
-
-/*func SendMail(mailTo []string,subject string, body string ) error {
- fmt.Println("SendMail")
-  //定義郵箱伺服器連線資訊，如果是阿里郵箱 pass填密碼，qq郵箱填授權碼
-    mailConn := map[string]string {
-        "user": from,
-        "pass": password,
-        "host": smtpHost,
-        "port": smtpPort,
-    }
-
-    port, _ := strconv.Atoi(mailConn["port"]) //轉換埠型別為int
-
-    m := gomail.NewMessage()
-    m.SetHeader("From","XD Game" + "<" + mailConn["user"] + ">")  //這種方式可以新增別名，即“XD Game”， 也可以直接用<code>m.SetHeader("From",mailConn["user"])</code> 讀者可以自行實驗下效果
-    m.SetHeader("To", mailTo...)  //傳送給多個使用者
-    m.SetHeader("Subject", subject)  //設定郵件主題
-    m.SetBody("text/html", body)     //設定郵件正文
-
-    d := gomail.NewDialer(mailConn["host"], port, mailConn["user"], mailConn["pass"])
-    fmt.Println("SendMail11111")
-    err := d.DialAndSend(m)
-    fmt.Println("SendMail222222")
-    if(err != nil){
-       fmt.Println("error ", err.Error())
-    }else{
-       fmt.Println("success")
-    }
-    return err
-
-}*/
-
-func SendGmail(){
-  fmt.Println("SendGmail!")
-   // Configuration
-   	from := "lowilson180@gmail.com"
-   	password := "XJIJ0vuXJIJ"
-   	to := []string{"lowilson180@gmail.com"}
-   	smtpHost := "smtp.gmail.com"
-   	smtpPort := "587"
-
-   	message := []byte("My super secret message.")
-
-   	// Create authentication
-   	auth := smtp.PlainAuth("", from, password, smtpHost)
-
-   	// Send actual message
-   	 fmt.Println("SendGmail222")
-   	err := smtp.SendMail(smtpHost+":"+smtpPort, auth, from, to, message)
-    fmt.Println("SendGmail333")
-   	if err != nil {
-   		 fmt.Println("error ", err.Error())
-   	}else{
-         fmt.Println("send success")
-   	}
-}
-
-
-func SendMailTest(){
-
-	   fmt.Println("SendMailTest~~~~~~~~~~~")
+	   fmt.Println("SendMail~~~~~~~~~~~")
 
     	var mailTo []string
-    	mailTo = strings.Split("lowilson180@gmail.com;", ";")
+    	mailTo = strings.Split( userMail + ";", ";")
     	mailTo = mailTo[:len(mailTo)-1]
     	fmt.Println(mailTo,len(mailTo))
 
@@ -164,10 +83,10 @@ func SendMailTest(){
             return
         }
 
-    	//msg := []byte("astpi4 test")
+    	msg := []byte(url_link)
 
     	header := make(map[string]string)
-        header["Subject"] = "Aspeed System notification"
+        header["Subject"] = "Cloud System - Reset Password Mail"
         header["MIME-Version"] = "1.0"
         header["Content-Type"] = "text/plain; charset=\"utf-8\""
         header["Content-Transfer-Encoding"] = "base64"
@@ -175,7 +94,7 @@ func SendMailTest(){
         for k, v := range header {
             message += fmt.Sprintf("%s: %s\r\n", k, v)
         }
-        message += "\r\n" + base64.StdEncoding.EncodeToString([]byte("Hi Wilson, Test"))
+        message += "\r\n" + base64.StdEncoding.EncodeToString(msg)
 
         _, err = w.Write([]byte(message))
 
