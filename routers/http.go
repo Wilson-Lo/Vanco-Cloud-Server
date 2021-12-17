@@ -286,7 +286,7 @@ func ForgotPassword(c *gin.Context){
     bytes, err := b64.StdEncoding.DecodeString(bodyData)
 
 	//get account
-    var accountInfo = models.CmdForgotPassowrd{}
+    var accountInfo = models.CmdForgotPassword{}
     json.Unmarshal(bytes, &accountInfo)
     //fmt.Println("loginInfo = " + string(loginInfo))
     fmt.Println("account = " + accountInfo.Account)
@@ -340,31 +340,162 @@ func ForgotPassword(c *gin.Context){
         if(tickets_row.Next()) {
           fmt.Println("old one to forgot")
           //delete old token
-           _, err := db.Exec("DELETE FROM reset_tickets WHERE account = '" + accountInfo.Account + "';")
+           _, err := db.Exec("UPDATE reset_tickets SET token_hash='" + myTool.ToMD5(newToken) + "', time='" + dt + "', token_used=0 WHERE account = '" + accountInfo.Account + "';")
            if err != nil {
-             fmt.Println("delete token error = " + err.Error())
-             cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \" Unexpected error occurred ! \"}")
+             fmt.Println("UPDATE token error = " + err.Error())
+             cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \" Unexpected error occurred (DataBase) ! \"}")
              cmd.Sign = getSign(cmd)
              appG.Response(http.StatusOK, cmd)
              return
            }
+        }else{
+           //save new token to db
+           _, err1 := db.Exec("INSERT INTO reset_tickets (account, token_hash, time, token_used) VALUES (?, ?, ?, ?)", accountInfo.Account, myTool.ToMD5(newToken), dt,  0)
+           if err1 != nil {
+              fmt.Println("add new  token error = " + err1.Error())
+              cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \" Unexpected error occurred (DataBase) ! \"}")
+              cmd.Sign = getSign(cmd)
+              appG.Response(http.StatusOK, cmd)
+              return
+           }
         }
 
-       //save new token to db
-       _, err1 := db.Exec("INSERT INTO reset_tickets (account, token_hash, time, token_used) VALUES (?, ?, ?, ?)", accountInfo.Account, myTool.ToMD5(newToken), dt,  []byte{0})
-       if err1 != nil {
-            fmt.Println("add new  token error = " + err1.Error())
-            cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \" Unexpected error occurred ! \"}")
-            cmd.Sign = getSign(cmd)
-            appG.Response(http.StatusOK, cmd)
-            return
-        }
         //feedback http request
         cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.SUCCESS + "\" , \"message\": \"The reset password link is sent to your mail !\"}")
         cmd.Sign = getSign(cmd)
         appG.Response(http.StatusOK, cmd)
         //send reset password link
-        myMail.SendMail(accountInfo.Account, url)
+        go myMail.SendMail(accountInfo.Account, url)
+    }else{
+       //account not exist
+       cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \"Account is not exist !\"}")
+       cmd.Sign = getSign(cmd)
+       appG.Response(http.StatusOK, cmd)
+    }
+}
+
+//Reset password
+func ResetPassword(c *gin.Context){
+
+    appG := app.Gin{C: c}
+    var cmd models.Command
+	err := c.BindJSON(&cmd)
+
+	if err != nil {
+       cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \" Unexpected error occurred !\"}")
+       cmd.Sign = getSign(cmd)
+       appG.Response(http.StatusOK, cmd)
+		return
+	}
+
+    var sign = getSign(cmd)
+
+    if(strings.Compare(sign, cmd.Sign) == 0){
+        fmt.Println("Sign is correct !")
+    }else{
+       cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \" Unexpected error occurred !\"}")
+       cmd.Sign = getSign(cmd)
+       appG.Response(http.StatusOK, cmd)
+       return
+    }
+
+    var bodyData = strings.ReplaceAll(cmd.Body, e.SaltFirst, "")
+    bodyData = strings.ReplaceAll(bodyData, e.SaltAfter, "")
+    bytes, err := b64.StdEncoding.DecodeString(bodyData)
+
+	//get reset info
+    var resetInfo = models.CmdResetPassword{}
+    json.Unmarshal(bytes, &resetInfo)
+
+    // Create the database handle, confirm driver is present
+    db, err := sql.Open("mysql", db.Cfg.FormatDSN())
+    if(err != nil){
+        fmt.Println("Connect to DB Failed !")
+    }
+    defer db.Close()
+
+	sql := fmt.Sprintf("SELECT * FROM users WHERE account = '" + resetInfo.Account + "';")
+    rows, err := db.Query(sql)
+    if err != nil {
+       fmt.Println("SQLite occur error : " + err.Error())
+       return
+    }
+    defer rows.Close()
+
+    var  id int
+    var  accounts string
+    var  password string
+    var  role int
+    var  times string
+
+    //check account is exits in table users
+    if(rows.Next()) {
+        err := rows.Scan(&id, &accounts, &password, &role, &times)
+        if err != nil {
+           cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \" Unexpected error occurred !\"}")
+           cmd.Sign = getSign(cmd)
+           appG.Response(http.StatusInternalServerError, cmd)
+           return
+        }
+
+        sql := ("SELECT * FROM reset_tickets WHERE account = '" + resetInfo.Account + "';")
+        tickets_row, err := db.Query(sql)
+        if err != nil {
+           fmt.Println("query error = "+ err.Error())
+           cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \" Unexpected error occurred !\"}")
+           cmd.Sign = getSign(cmd)
+           appG.Response(http.StatusInternalServerError, cmd)
+           return
+        }
+        defer tickets_row.Close()
+
+        var  id int
+        var  accounts string
+        var  token_hash string
+        var  time string
+        var  token_used string
+
+        //check has token before?
+        if(tickets_row.Next()) {
+          err := tickets_row.Scan(&id, &accounts, &token_hash, &time, &token_used)
+          fmt.Println("query accounts = ", accounts, "token_hash = ", token_hash)
+          if err != nil {
+           fmt.Println("query error = ", err.Error())
+           cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \" Unexpected error occurred !\"}")
+           cmd.Sign = getSign(cmd)
+           appG.Response(http.StatusInternalServerError, cmd)
+           return
+         }
+         fmt.Println("https accounts = ", resetInfo.Account, " token_hash = ", resetInfo.Token, " password = ", resetInfo.Password)
+
+         //check token
+         if(strings.Compare( myTool.ToMD5(resetInfo.Token), token_hash) == 0){
+             fmt.Println("token is ok !!")
+             //update password
+             _, err := db.Exec("UPDATE users SET password='" + myTool.ToMD5(resetInfo.Password) + "' WHERE account = '" + resetInfo.Account + "';")
+             if err != nil {
+              fmt.Println("UPDATE password error = " + err.Error())
+              cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \" Unexpected error occurred (DataBase) ! \"}")
+              cmd.Sign = getSign(cmd)
+              appG.Response(http.StatusOK, cmd)
+              return
+            }
+            //feedback http request
+            cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.SUCCESS + "\" , \"message\": \"Reset password successful !\"}")
+            cmd.Sign = getSign(cmd)
+            appG.Response(http.StatusOK, cmd)
+         }else{
+            cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \"This Link has expired !\"}")
+            cmd.Sign = getSign(cmd)
+            appG.Response(http.StatusOK, cmd)
+         }
+
+        }else{
+           //can't find in the reset_tickets table
+           cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \"Account is not exist !\"}")
+           cmd.Sign = getSign(cmd)
+           appG.Response(http.StatusOK, cmd)
+        }
     }else{
        //account not exist
        cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \"Account is not exist !\"}")

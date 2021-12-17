@@ -15,6 +15,12 @@ type CmdCreateAccount struct {
 	Password   string      `json:"password"`
 }
 
-type CmdForgotPassowrd struct {
+type CmdForgotPassword struct {
 	Account   string      `json:"account"`
+}
+
+type CmdResetPassword struct {
+	Account   string      `json:"account"`
+    Password   string      `json:"password"`
+    Token      string      `json:"token"`
 }

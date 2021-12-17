@@ -25,7 +25,8 @@ func InitRouter() *gin.Engine{
     router.POST("/login_account", LoginAccount)
     /** Forgot Password **/
     router.POST("/forgot_password", ForgotPassword)
-
+    /** Reset Password **/
+    router.POST("/reset_password", ResetPassword)
 
    //  mailTo := []string {
     //    "lowilson180@gmail.com",
