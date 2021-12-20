@@ -2,6 +2,7 @@ package tool
 
 import (
 	"fmt"
+	"app/models"
 	"io"
 	"time"
 	"strings"
@@ -33,6 +34,14 @@ func ToMD5(str string) string  {
 func EncryptionData(bodyData string) string{
      base64String := b64.StdEncoding.EncodeToString([]byte(bodyData))
      return (e.SaltFirst + base64String + e.SaltAfter)
+}
+
+/**
+*  Get sign value
+*/
+func GetSign(data models.Command) string{
+     var allData = "body="+data.Body+"&etag="+data.Etag+"&extra="+data.Extra+"&method="+data.Method+"&time="+data.Time+"&to="+data.To
+     return ToMD5(allData)
 }
 
 /**
