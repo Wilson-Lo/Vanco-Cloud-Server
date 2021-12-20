@@ -336,6 +336,7 @@ func ForgotPassword(c *gin.Context){
         }
         defer tickets_row.Close()
         dt := time.Now().Format("2006-01-02 15:04:05")
+        fmt.Println("dt = ", dt)
         //check has token before?
         if(tickets_row.Next()) {
           fmt.Println("old one to forgot")
@@ -452,13 +453,13 @@ func ResetPassword(c *gin.Context){
         var  id int
         var  accounts string
         var  token_hash string
-        var  time string
+        var  expireTime string
         var  token_used string
 
         //check has token before?
         if(tickets_row.Next()) {
-          err := tickets_row.Scan(&id, &accounts, &token_hash, &time, &token_used)
-          fmt.Println("query accounts = ", accounts, "token_hash = ", token_hash)
+          err := tickets_row.Scan(&id, &accounts, &token_hash, &expireTime, &token_used)
+          fmt.Println("query accounts = ", accounts, "token_hash = ", token_hash, "expireTime = ", expireTime)
           if err != nil {
            fmt.Println("query error = ", err.Error())
            cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \" Unexpected error occurred !\"}")
@@ -470,20 +471,43 @@ func ResetPassword(c *gin.Context){
 
          //check token
          if(strings.Compare( myTool.ToMD5(resetInfo.Token), token_hash) == 0){
-             fmt.Println("token is ok !!")
-             //update password
-             _, err := db.Exec("UPDATE users SET password='" + myTool.ToMD5(resetInfo.Password) + "' WHERE account = '" + resetInfo.Account + "';")
-             if err != nil {
-              fmt.Println("UPDATE password error = " + err.Error())
-              cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \" Unexpected error occurred (DataBase) ! \"}")
-              cmd.Sign = getSign(cmd)
-              appG.Response(http.StatusOK, cmd)
-              return
-            }
-            //feedback http request
-            cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.SUCCESS + "\" , \"message\": \"Reset password successful !\"}")
-            cmd.Sign = getSign(cmd)
-            appG.Response(http.StatusOK, cmd)
+
+             tokenExpireTime, errParse := time.ParseInLocation("2006-01-02 15:04:05", expireTime, time.Local)
+
+             if errParse != nil {
+                fmt.Println("parse time error ", errParse.Error())
+                cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \" Unexpected error occurred !\"}")
+                cmd.Sign = getSign(cmd)
+                appG.Response(http.StatusInternalServerError, cmd)
+                return
+             }
+
+             dt := time.Now()
+             elapsed := dt.Sub(tokenExpireTime)
+             h, _ := time.ParseDuration(myTool.ShortDur(elapsed))
+
+             if(h.Seconds() > 900){
+                fmt.Println("over 15 mins")
+                cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \"This Link has expired !\"}")
+                cmd.Sign = getSign(cmd)
+                appG.Response(http.StatusOK, cmd)
+             }else{
+                fmt.Println("less than 15 mins")
+                fmt.Println("token is ok !!")
+                 //update password
+                 _, err := db.Exec("UPDATE users SET password='" + myTool.ToMD5(resetInfo.Password) + "' WHERE account = '" + resetInfo.Account + "';")
+                 if err != nil {
+                    fmt.Println("UPDATE password error = " + err.Error())
+                    cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \" Unexpected error occurred (DataBase) ! \"}")
+                    cmd.Sign = getSign(cmd)
+                    appG.Response(http.StatusOK, cmd)
+                    return
+                 }
+                 //feedback http request
+                 cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.SUCCESS + "\" , \"message\": \"Reset password successful !\"}")
+                 cmd.Sign = getSign(cmd)
+                 appG.Response(http.StatusOK, cmd)
+             }
          }else{
             cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \"This Link has expired !\"}")
             cmd.Sign = getSign(cmd)
