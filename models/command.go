@@ -24,3 +24,7 @@ type CmdResetPassword struct {
     Password   string      `json:"password"`
     Token      string      `json:"token"`
 }
+
+type RefreshToken struct {
+	RefreshToken   string      `json:"refresh_token"`
+}

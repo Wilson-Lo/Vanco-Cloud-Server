@@ -27,16 +27,12 @@ func InitRouter() *gin.Engine{
     router.POST("/forgot_password", ForgotPassword)
     /** Reset Password **/
     router.POST("/reset_password", ResetPassword)
+    /** Device List **/
+    router.GET("/device_list", GetDeviceList)
+    /** Refresh Token **/
+    router.POST("/refresh_token", Refresh_token)
 
-   //  mailTo := []string {
-    //    "lowilson180@gmail.com",
-      //  }
-       //郵件主題為"Hello"
-     //   subject := "Hello"
-       // 郵件正文
-      //  body := "Good"
-  //  myMail.SendMail(mailTo, subject, body)
-   // myMail.SendMailTest()
+
 	return router
 }
 

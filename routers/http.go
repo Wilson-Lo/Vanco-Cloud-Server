@@ -7,7 +7,7 @@ import (
     myTool "app/pkg/tool"
     passervice "app/service/passervice"
     db "app/pkg/db"
-	//jwt "app/pkg/jwt"
+	myJwt "app/pkg/jwt"
 	"encoding/json"
 	"fmt"
 	"app/models"
@@ -15,21 +15,41 @@ import (
     "app/pkg/app"
 	"time"
 	"strings"
+	"os"
+    "strconv"
 	"github.com/gin-gonic/gin"
 	"database/sql"
+	"github.com/dgrijalva/jwt-go"
 )
 
 func Connect(c *gin.Context) {
 
     appG := app.Gin{C: c}
-	var cmd models.Command
+    var cmd models.Command
 	err := c.BindJSON(&cmd)
 	if err != nil {
-		cmd.Body = "fail"
-		appG.Response(http.StatusInternalServerError, cmd)
-		return
-	}
+       cmd.Body = "fail"
+       appG.Response(http.StatusInternalServerError, cmd)
+       return
+    }
 
+    //var td *jwt.Todo
+    tokenAuth, err := myJwt.ExtractTokenMetadata(c.Request)
+    if err != nil {
+       fmt.Println("unauthorized 1 ")
+       cmd.Body = "{\"result\": \"" + e.FAILURE + "\" , \"message\": \" unauthorized !\"}"
+       appG.Response(http.StatusOK, cmd)
+       return
+     }
+
+    userId, err := myJwt.FetchAuth(tokenAuth)
+    if err != nil {
+      fmt.Println("unauthorized 2 ")
+      cmd.Body = "{\"result\": \"" + e.FAILURE + "\" , \"message\": \" unauthorized !\"}"
+      appG.Response(http.StatusOK, cmd)
+      return
+    }
+    fmt.Println("userId " , userId)
 	if cmd.Method == "cmd" {
 		//signKey, err := connectService.GenerateSignKey(cmd)
 		//if err != nil {
@@ -62,7 +82,9 @@ func Connect(c *gin.Context) {
 	//}
 }
 
-//create new account
+/**
+* Create new account
+*/
 func CreateAccount(c *gin.Context){
 
     appG := app.Gin{C: c}
@@ -160,7 +182,9 @@ func CreateAccount(c *gin.Context){
 }
 
 
-//login account
+/**
+* Login account
+*/
 func LoginAccount(c *gin.Context){
 
     appG := app.Gin{C: c}
@@ -227,12 +251,16 @@ func LoginAccount(c *gin.Context){
        //check password
        var userEnterPassword = myTool.ToMD5(loginInfo.Password)
        if(strings.Compare(userEnterPassword, password) == 0){
-         // token, err := jwt.CreateToken(uint64(id))
-        //  if(err != nil){
-         //   fmt.Println("create token error : ", err.Error())
-         // }
-       //   fmt.Println("token : ", token)
-          cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.SUCCESS + "\" , \"message\": \"Login Successful !\" , \"token\": \"" + "token" + "\"}")
+          token, err := myJwt.CreateToken(uint64(id))
+          if(err != nil){
+            fmt.Println("create token error : ", err.Error())
+          }
+          saveErr := myJwt.CreateAuth(uint64(id), token)
+          if saveErr != nil {
+              fmt.Println("save token error : ", saveErr.Error())
+          }
+          fmt.Println("AccessToken : ", token.AccessToken, " RefreshToken : ", token.RefreshToken)
+          cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.SUCCESS + "\" , \"message\": \"Login Successful !\" , \"access_token\": \"" + token.AccessToken + "\", \"refresh_token\": \"" + token.RefreshToken + "\"}")
           cmd.Sign = myTool.GetSign(cmd)
           appG.Response(http.StatusOK, cmd)
        }else{
@@ -248,7 +276,9 @@ func LoginAccount(c *gin.Context){
     }
 }
 
-//forgot password
+/**
+* Forgot password
+*/
 func ForgotPassword(c *gin.Context){
 
     appG := app.Gin{C: c}
@@ -534,4 +564,149 @@ func ResetPassword(c *gin.Context){
        cmd.Sign = myTool.GetSign(cmd)
        appG.Response(http.StatusOK, cmd)
     }
+}
+
+/**
+*   Get Device List
+*/
+func GetDeviceList(c *gin.Context){
+
+    appG := app.Gin{C: c}
+    var cmd models.Command
+
+    //var td *jwt.Todo
+    tokenAuth, err := myJwt.ExtractTokenMetadata(c.Request)
+    if err != nil {
+       fmt.Println("unauthorized 1 ")
+       cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \" unauthorized !\"}")
+       cmd.Sign = myTool.GetSign(cmd)
+       appG.Response(http.StatusOK, cmd)
+       return
+     }
+
+    userId, err := myJwt.FetchAuth(tokenAuth)
+    if err != nil {
+      fmt.Println("unauthorized 2 ")
+      cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \" unauthorized !\"}")
+      cmd.Sign = myTool.GetSign(cmd)
+      appG.Response(http.StatusOK, cmd)
+      return
+    }
+    fmt.Println("userId ", userId)
+    cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.SUCCESS + "\" , \"message\": \"Get device list !\"}")
+    cmd.Sign = myTool.GetSign(cmd)
+    appG.Response(http.StatusOK, cmd)
+}
+
+/**
+* Refresh Token
+*
+* Use refresh token to refresh access token
+*
+*/
+func Refresh_token(c *gin.Context){
+
+   appG := app.Gin{C: c}
+   var cmd models.Command
+   var refreshToken models.RefreshToken
+   err := c.BindJSON(&refreshToken)
+   if(err != nil){
+      fmt.Println("Refresh Token error 1")
+      cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \"Refresh Token error 1 !\"}")
+      cmd.Sign = myTool.GetSign(cmd)
+      appG.Response(http.StatusOK, cmd)
+   }
+
+   fmt.Println("refresh token  = ", refreshToken.RefreshToken)
+   //verify the token
+   os.Setenv("REFRESH_SECRET", "mcmvmkmsdnfsdmfdsjf") //this should be in an env file
+   token, err := jwt.Parse(refreshToken.RefreshToken, func(token *jwt.Token) (interface{}, error) {
+     //Make sure that the token method conform to "SigningMethodHMAC"
+     if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+        return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+     }
+     return []byte(os.Getenv("REFRESH_SECRET")), nil
+   })
+
+   //if there is an error, the token must have expired
+   if err != nil {
+         fmt.Println("Refresh Token error 2")
+       cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \"Refresh Token error 2 !\"}")
+       cmd.Sign = myTool.GetSign(cmd)
+       appG.Response(http.StatusOK, cmd)
+     return
+   }
+
+  //is token valid?
+   if _, ok := token.Claims.(jwt.Claims); !ok && !token.Valid {
+         fmt.Println("Refresh Token error 3")
+      cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \"Refresh Token error 3 !\"}")
+      cmd.Sign = myTool.GetSign(cmd)
+      appG.Response(http.StatusOK, cmd)
+     return
+   }
+
+   //Since token is valid, get the uuid:
+   claims, ok := token.Claims.(jwt.MapClaims) //the token claims should conform to MapClaims
+   if ok && token.Valid {
+     refreshUuid, ok := claims["refresh_uuid"].(string) //convert the interface to string
+     if !ok {
+           fmt.Println("Refresh Token error 4")
+        cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \"Refresh Token error 4 !\"}")
+        cmd.Sign = myTool.GetSign(cmd)
+        appG.Response(http.StatusOK, cmd)
+        return
+     }
+     userId, err := strconv.ParseUint(fmt.Sprintf("%.f", claims["user_id"]), 10, 64)
+     if err != nil {
+           fmt.Println("Refresh Token error 5")
+        cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \"Refresh Token error 5 !\"}")
+        cmd.Sign = myTool.GetSign(cmd)
+        appG.Response(http.StatusOK, cmd)
+        return
+     }
+     fmt.Println("refreshUuid ", refreshUuid)
+     //Delete the previous Refresh Token
+     deleted, delErr := myJwt.DeleteAuth(refreshUuid)
+     if delErr != nil || deleted == 0 { //if any goes wrong
+        fmt.Println("Refresh Token error 6")
+        cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \"Refresh Token error 6 !\"}")
+        cmd.Sign = myTool.GetSign(cmd)
+        appG.Response(http.StatusOK, cmd)
+        return
+     }
+
+    //Create new pairs of refresh and access tokens
+     ts, createErr := myJwt.CreateToken(userId)
+     if  createErr != nil {
+           fmt.Println("Refresh Token error 7")
+       cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \"Refresh Token error 7 !\"}")
+       cmd.Sign = myTool.GetSign(cmd)
+       appG.Response(http.StatusOK, cmd)
+       return
+     }
+
+     //save the tokens metadata to redis
+     saveErr := myJwt.CreateAuth(userId, ts)
+     if saveErr != nil {
+           fmt.Println("Refresh Token error 8")
+        cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \"Refresh Token error 8 !\"}")
+        cmd.Sign = myTool.GetSign(cmd)
+        appG.Response(http.StatusOK, cmd)
+        return
+     }
+ /*    tokens := map[string]string{
+       "access_token":  ts.AccessToken,
+       "refresh_token": ts.RefreshToken,
+     }*/
+     fmt.Println("access_token  = ", ts.AccessToken, " refresh_token = ", ts.RefreshToken)
+     cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.SUCCESS + "\" , \"access_token\": \"" + ts.AccessToken + "\" ,  \"refresh_token\": \"" + ts.RefreshToken + "\"}")
+     cmd.Sign = myTool.GetSign(cmd)
+     appG.Response(http.StatusOK, cmd)
+   } else {
+         fmt.Println("Refresh Token error 9")
+      cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \"Refresh Token error 9 !\"}")
+      cmd.Sign = myTool.GetSign(cmd)
+      appG.Response(http.StatusOK, cmd)
+   }
 }
