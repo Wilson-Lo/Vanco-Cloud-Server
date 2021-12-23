@@ -17,8 +17,6 @@ var upGrader = websocket.Upgrader{
 
 func WSSConnect(c *gin.Context) {
 
-
-
 	ws, err := upGrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
 		fmt.Println("Websocket Error : ", err)
@@ -31,12 +29,14 @@ func WSSConnect(c *gin.Context) {
 		   fmt.Println("Websocket read error = ", err.Error())
 		   return
 		}
-
+       fmt.Println("wss receive message = " , string(message), "-")
 		if string(message) != "" {
 
 			if strings.ToLower(string(message)) == "ping" {
-				ws.WriteMessage(websocket.TextMessage, []byte("pong"))
+			    fmt.Println("wss receive ping & send pong back")
+				ws.WriteMessage(websocket.TextMessage, []byte("{\"method\":\"pong\"}"))
 			} else {
+			    fmt.Println("wss receive something need to feedback to https")
 				if err != nil {
 					fmt.Println("Websocket Error : ", err)
 					break

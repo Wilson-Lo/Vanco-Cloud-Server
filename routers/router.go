@@ -2,6 +2,7 @@ package routers
 
 import (
 	"github.com/gin-gonic/gin"
+	"github.com/gin-contrib/gzip"
 	"net/http"
  //   "os"
    // "fmt"
@@ -13,6 +14,7 @@ func InitRouter() *gin.Engine{
    	router := gin.New()
    	router.Use(gin.Logger())
    	router.Use(gin.Recovery())
+   	router.Use(gzip.Gzip(gzip.DefaultCompression))
     router.LoadHTMLFiles("asset/index.html")
    	router.Static("/asset", "asset")
    	router.GET("/", index)

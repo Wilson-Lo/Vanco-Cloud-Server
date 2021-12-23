@@ -34,6 +34,7 @@ func DecodeMsg(ws *websocket.Conn, message string) {
 	      log.Println("ready to send back to http ")
 		  passervice.SendResponseToHTTPRequest("wilson", cmd)
 
+
 	default:
 	     log.Println("default ")
 	     cmd.Time = "2021"
