@@ -31,7 +31,8 @@ func InitRouter() *gin.Engine{
     router.GET("/device_list", GetDeviceList)
     /** Refresh Token **/
     router.POST("/refresh_token", Refresh_token)
-
+    /** Logout Account **/
+    router.POST("/logout_account", Logout_account)
 
 	return router
 }

@@ -710,3 +710,37 @@ func Refresh_token(c *gin.Context){
       appG.Response(http.StatusOK, cmd)
    }
 }
+
+/**
+* Logout account
+*
+*/
+func Logout_account(c *gin.Context){
+
+    appG := app.Gin{C: c}
+    var cmd models.Command
+
+    //var td *jwt.Todo
+    tokenAuth, err := myJwt.ExtractTokenMetadata(c.Request)
+    if err != nil {
+       fmt.Println("unauthorized 1 ")
+       cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \" unauthorized !\"}")
+       cmd.Sign = myTool.GetSign(cmd)
+       appG.Response(http.StatusOK, cmd)
+       return
+     }
+
+     //Delete the access token
+     deleted, delErr := myJwt.DeleteAuth(tokenAuth.AccessUuid)
+     if delErr != nil || deleted == 0 { //if any goes wrong
+        fmt.Println("Refresh Token error 1")
+        cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \"Delete Token error 1 !\"}")
+        cmd.Sign = myTool.GetSign(cmd)
+        appG.Response(http.StatusOK, cmd)
+        return
+     }
+
+     cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.SUCCESS + "\" , \"message\": \" Logout successful !\" }")
+     cmd.Sign = myTool.GetSign(cmd)
+     appG.Response(http.StatusOK, cmd)
+}
