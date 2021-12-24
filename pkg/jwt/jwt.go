@@ -9,6 +9,7 @@ import (
     "net/http"
     "fmt"
     "strings"
+    "app/models"
     redis "app/pkg/redis"
 )
 
@@ -170,4 +171,77 @@ func DeleteAuth(givenUuid string) (int64,error) {
      return 0, err
   }
   return deleted, nil
+}
+
+/**
+* Refresh Token (non https)
+*/
+func Refresh_token(refresh_token string) (*TokenDetails){
+
+   var refreshToken models.RefreshToken
+   fmt.Println("JWT Refresh_token")
+   refreshToken.RefreshToken = refresh_token
+   fmt.Println("refresh token  = ", refreshToken.RefreshToken)
+   //verify the token
+   os.Setenv("REFRESH_SECRET", "mcmvmkmsdnfsdmfdsjf") //this should be in an env file
+   token, err := jwt.Parse(refreshToken.RefreshToken, func(token *jwt.Token) (interface{}, error) {
+     //Make sure that the token method conform to "SigningMethodHMAC"
+     if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+        return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+     }
+     return []byte(os.Getenv("REFRESH_SECRET")), nil
+   })
+
+   //if there is an error, the token must have expired
+   if err != nil {
+     fmt.Println("JWT Refresh Token error 1")
+     return nil
+   }
+
+   //is token valid?
+   if _, ok := token.Claims.(jwt.Claims); !ok && !token.Valid {
+      fmt.Println("JWT Refresh Token error 2")
+      return nil
+   }
+
+   //Since token is valid, get the uuid:
+   claims, ok := token.Claims.(jwt.MapClaims) //the token claims should conform to MapClaims
+   if ok && token.Valid {
+     refreshUuid, ok := claims["refresh_uuid"].(string) //convert the interface to string
+     if !ok {
+        return nil
+     }
+     userId, err := strconv.ParseUint(fmt.Sprintf("%.f", claims["user_id"]), 10, 64)
+     if err != nil {
+        fmt.Println("JWT Refresh Token error 3")
+        return nil
+     }
+     fmt.Println("refreshUuid ", refreshUuid)
+     //Delete the previous Refresh Token
+     deleted, delErr := DeleteAuth(refreshUuid)
+     if delErr != nil || deleted == 0 { //if any goes wrong
+        fmt.Println("JWT Refresh Token error 4")
+        return nil
+     }
+
+    //Create new pairs of refresh and access tokens
+     ts, createErr := CreateToken(userId)
+     if  createErr != nil {
+       fmt.Println("JWT Refresh Token error 5")
+       return nil
+     }
+
+     //save the tokens metadata to redis
+     saveErr := CreateAuth(userId, ts)
+     if saveErr != nil {
+        fmt.Println("JWT Refresh Token error 6")
+        return nil
+     }
+
+     return ts
+
+   } else {
+       fmt.Println("JWT Refresh Token error 7")
+       return nil
+   }
 }

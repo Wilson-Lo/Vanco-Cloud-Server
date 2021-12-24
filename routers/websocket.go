@@ -19,7 +19,7 @@ func WSSConnect(c *gin.Context) {
 
 	ws, err := upGrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
-		fmt.Println("Websocket Error : ", err)
+		fmt.Println("Websocket Error : ", err.Error())
 		return
 	}
 	defer ws.Close()

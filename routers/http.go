@@ -679,7 +679,7 @@ func Refresh_token(c *gin.Context){
     //Create new pairs of refresh and access tokens
      ts, createErr := myJwt.CreateToken(userId)
      if  createErr != nil {
-           fmt.Println("Refresh Token error 7")
+       fmt.Println("Refresh Token error 7")
        cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \"Refresh Token error 7 !\"}")
        cmd.Sign = myTool.GetSign(cmd)
        appG.Response(http.StatusOK, cmd)
@@ -689,7 +689,7 @@ func Refresh_token(c *gin.Context){
      //save the tokens metadata to redis
      saveErr := myJwt.CreateAuth(userId, ts)
      if saveErr != nil {
-           fmt.Println("Refresh Token error 8")
+        fmt.Println("Refresh Token error 8")
         cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \"Refresh Token error 8 !\"}")
         cmd.Sign = myTool.GetSign(cmd)
         appG.Response(http.StatusOK, cmd)
@@ -719,28 +719,57 @@ func Logout_account(c *gin.Context){
 
     appG := app.Gin{C: c}
     var cmd models.Command
+    var refreshToken models.RefreshToken
+    err := c.BindJSON(&refreshToken)
+    if(err != nil){
+       fmt.Println("Logout error 1")
+       cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \"Logout error 1 !\"}")
+       cmd.Sign = myTool.GetSign(cmd)
+       appG.Response(http.StatusOK, cmd)
+       return
+    }
+    fmt.Println("refresh token  = ", refreshToken.RefreshToken)
 
     //var td *jwt.Todo
     tokenAuth, err := myJwt.ExtractTokenMetadata(c.Request)
     if err != nil {
-       fmt.Println("unauthorized 1 ")
-       cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \" unauthorized !\"}")
-       cmd.Sign = myTool.GetSign(cmd)
-       appG.Response(http.StatusOK, cmd)
-       return
-     }
-
-     //Delete the access token
-     deleted, delErr := myJwt.DeleteAuth(tokenAuth.AccessUuid)
-     if delErr != nil || deleted == 0 { //if any goes wrong
-        fmt.Println("Refresh Token error 1")
-        cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \"Delete Token error 1 !\"}")
+       fmt.Println("logout refresh new token")
+       //get new token
+       var  tokenGroup = myJwt.Refresh_token(refreshToken.RefreshToken)
+       if(tokenGroup != nil){
+          //Delete the access token
+          deleted, delErr := myJwt.DeleteAuth(tokenGroup.AccessUuid)
+          if delErr != nil || deleted == 0 { //if any goes wrong
+             fmt.Println("Logout error 2")
+             cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \"Logout error 2 !\"}")
+             cmd.Sign = myTool.GetSign(cmd)
+             appG.Response(http.StatusOK, cmd)
+             return
+          }
+          cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.SUCCESS + "\" , \"message\": \" Logout successful !\" }")
+          cmd.Sign = myTool.GetSign(cmd)
+          appG.Response(http.StatusOK, cmd)
+       }else{
+          fmt.Println("Logout error 4")
+          cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \"Logout error 4 !\"}")
+          cmd.Sign = myTool.GetSign(cmd)
+          appG.Response(http.StatusOK, cmd)
+          return
+       }
+     }else{
+        fmt.Println("logout not need to refresh token")
+        //Delete the access token
+        deleted, delErr := myJwt.DeleteAuth(tokenAuth.AccessUuid)
+        if delErr != nil || deleted == 0 { //if any goes wrong
+          fmt.Println("Logout error 2")
+          cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \"Logout error 3 !\"}")
+          cmd.Sign = myTool.GetSign(cmd)
+          appG.Response(http.StatusOK, cmd)
+          return
+        }
+        fmt.Println("logout successful !")
+        cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.SUCCESS + "\" , \"message\": \" Logout successful !\" }")
         cmd.Sign = myTool.GetSign(cmd)
         appG.Response(http.StatusOK, cmd)
-        return
      }
-
-     cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.SUCCESS + "\" , \"message\": \" Logout successful !\" }")
-     cmd.Sign = myTool.GetSign(cmd)
-     appG.Response(http.StatusOK, cmd)
 }
