@@ -39,6 +39,16 @@ func AddToWSList(serialNum string, ws *websocket.Conn) {
 	wsMap[serialNum] = ws
 }
 
+//get websocket list
+func GetWSList() map[string]*websocket.Conn {
+     return wsMap
+}
+
+//get websocket on-line list count
+func GetWSListCount() int {
+     return len(wsMap)
+}
+
 //add http
 func AddToGinList(etag string, gin app.Gin) {
 	ginMap[etag] = gin
@@ -71,7 +81,6 @@ func SendResponseToHTTPRequest(etag string, cmd models.Command) {
         			}()
        }
 	}
-
 }
 /*
 func contains(arr []string, str string) bool {

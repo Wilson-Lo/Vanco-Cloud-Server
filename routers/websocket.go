@@ -7,6 +7,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 	wsservice "app/service/wsservice"
+	passervice "app/service/passervice"
 )
 
 var upGrader = websocket.Upgrader{
@@ -26,6 +27,14 @@ func WSSConnect(c *gin.Context) {
 	for {
 		_, message, err := ws.ReadMessage()
 		if err != nil{
+		   fmt.Println("Websocket list size : ", passervice.GetWSListCount())
+		    for key, websocketObject := range passervice.GetWSList() {
+               if(websocketObject == ws){
+                  fmt.Println(key , " remove from websocket list ")
+                  delete(passervice.GetWSList(), key)
+                  fmt.Println("after delete Websocket list size : ", passervice.GetWSListCount())
+               }
+           }
 		   fmt.Println("Websocket read error = ", err.Error())
 		   return
 		}
