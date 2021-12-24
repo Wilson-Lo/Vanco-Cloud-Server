@@ -573,29 +573,50 @@ func GetDeviceList(c *gin.Context){
 
     appG := app.Gin{C: c}
     var cmd models.Command
+    var refreshToken models.RefreshToken
 
     //var td *jwt.Todo
     tokenAuth, err := myJwt.ExtractTokenMetadata(c.Request)
     if err != nil {
-       fmt.Println("unauthorized 1 ")
-       cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \" unauthorized !\"}")
+        fmt.Println("GetDeviceList - need to refresh token")
+        err := c.BindJSON(&refreshToken)
+        if(err != nil){
+          fmt.Println("GetDeviceList - error 1")
+          cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \"Get Device error 1 !\"}")
+          cmd.Sign = myTool.GetSign(cmd)
+          appG.Response(http.StatusOK, cmd)
+          return
+        }
+        fmt.Println("GetDeviceList - refresh token  = ", refreshToken.RefreshToken)
+        //get new token
+        var  tokenGroup = myJwt.Refresh_token(refreshToken.RefreshToken)
+        if(tokenGroup != nil){
+           fmt.Println("GetDeviceList - error 2 - feedback new token")
+           cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \"Get Device error 2 !\" }")
+           cmd.Extra = "{ \"access_token\": \"" + tokenGroup.AccessToken + "\" ,  \"refresh_token\": \"" + tokenGroup.RefreshToken + "\"}"
+           cmd.Sign = myTool.GetSign(cmd)
+           appG.Response(http.StatusOK, cmd)
+        }else{
+           fmt.Println("GetDeviceList - error 3")
+           cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \"Get Device error 3 !\"}")
+           cmd.Sign = myTool.GetSign(cmd)
+           appG.Response(http.StatusOK, cmd)
+           return
+        }
+    }else{
+       userId, err := myJwt.FetchAuth(tokenAuth)
+       if err != nil {
+          fmt.Println("GetDeviceList - unauthorized !")
+          cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \" unauthorized !\"}")
+          cmd.Sign = myTool.GetSign(cmd)
+          appG.Response(http.StatusOK, cmd)
+          return
+       }
+       fmt.Println("GetDeviceList - userId ", userId)
+       cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.SUCCESS + "\" , \"message\": \"Get device list !\"}")
        cmd.Sign = myTool.GetSign(cmd)
        appG.Response(http.StatusOK, cmd)
-       return
-     }
-
-    userId, err := myJwt.FetchAuth(tokenAuth)
-    if err != nil {
-      fmt.Println("unauthorized 2 ")
-      cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \" unauthorized !\"}")
-      cmd.Sign = myTool.GetSign(cmd)
-      appG.Response(http.StatusOK, cmd)
-      return
     }
-    fmt.Println("userId ", userId)
-    cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.SUCCESS + "\" , \"message\": \"Get device list !\"}")
-    cmd.Sign = myTool.GetSign(cmd)
-    appG.Response(http.StatusOK, cmd)
 }
 
 /**

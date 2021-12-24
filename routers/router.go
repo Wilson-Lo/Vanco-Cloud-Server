@@ -30,7 +30,7 @@ func InitRouter() *gin.Engine{
     /** Reset Password **/
     router.POST("/reset_password", ResetPassword)
     /** Device List **/
-    router.GET("/device_list", GetDeviceList)
+    router.POST("/device_list", GetDeviceList)
     /** Refresh Token **/
     router.POST("/refresh_token", Refresh_token)
     /** Logout Account **/
