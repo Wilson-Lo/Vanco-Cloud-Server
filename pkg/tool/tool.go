@@ -14,13 +14,17 @@ import (
 )
 const letterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
-//Valid E-mail
+/**
+* Valid E-mail
+*/
 func ValidEmail(email string) bool {
     _, err := mail.ParseAddress(email)
     return err == nil
 }
 
-//string to MD5
+/**
+*  string to MD5
+*/
 func ToMD5(str string) string  {
     w := md5.New()
     io.WriteString(w, str)
@@ -45,7 +49,7 @@ func GetSign(data models.Command) string{
 }
 
 /**
-*
+* Random MD5
 */
 func RandStringBytes(n int) string {
     b := make([]byte, n)
@@ -55,6 +59,9 @@ func RandStringBytes(n int) string {
     return string(b)
 }
 
+/**
+* Time format
+*/
 func ShortDur(d time.Duration) string {
     s := d.String()
     if strings.HasSuffix(s, "m0s") {
@@ -64,4 +71,12 @@ func ShortDur(d time.Duration) string {
         s = s[:len(s)-2]
     }
     return s
+}
+
+/**
+*  Remove last word of the string
+*/
+func RemoveLastRune(s string) string {
+    r := []rune(s)
+    return string(r[:len(r)-1])
 }

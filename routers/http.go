@@ -598,7 +598,7 @@ func GetDeviceList(c *gin.Context){
            appG.Response(http.StatusOK, cmd)
         }else{
            fmt.Println("GetDeviceList - error 3")
-           cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \"Get Device error 3 !\"}")
+           cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \"Need to log-out !\"}")
            cmd.Sign = myTool.GetSign(cmd)
            appG.Response(http.StatusOK, cmd)
            return
@@ -612,10 +612,19 @@ func GetDeviceList(c *gin.Context){
           appG.Response(http.StatusOK, cmd)
           return
        }
-       fmt.Println("GetDeviceList - userId ", userId)
-       cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.SUCCESS + "\" , \"message\": \"Get device list !\"}")
-       cmd.Sign = myTool.GetSign(cmd)
-       appG.Response(http.StatusOK, cmd)
+
+      var device_list = ""
+
+      for key, _ := range passervice.GetWSList() {
+         device_list += " {\"mac\": \"" + key +  "\",\"type\": \"1\",\"name\": \"2\"} ,"
+      }
+
+      device_list = myTool.RemoveLastRune(device_list)
+      fmt.Println("GetDeviceList - device_list ", "{\"result\": \"" + e.SUCCESS + "\" , \"message\": \"Get device list !\", \"device_list\":[" + device_list + "]}")
+      fmt.Println("GetDeviceList - userId ", userId)
+      cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.SUCCESS + "\" , \"message\": \"Get device list !\", \"device_list\":[" + device_list + "]}")
+      cmd.Sign = myTool.GetSign(cmd)
+      appG.Response(http.StatusOK, cmd)
     }
 }
 
