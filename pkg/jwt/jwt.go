@@ -178,7 +178,7 @@ func DeleteAuth(givenUuid string) (int64,error) {
 */
 func Refresh_token(refresh_token string) (*TokenDetails){
 
-   var refreshToken models.RefreshToken
+   var refreshToken models.RefreshTokenObject
    fmt.Println("JWT Refresh_token")
    refreshToken.RefreshToken = refresh_token
    fmt.Println("refresh token  = ", refreshToken.RefreshToken)

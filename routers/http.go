@@ -116,7 +116,7 @@ func CreateAccount(c *gin.Context){
      bytes, err := b64.StdEncoding.DecodeString(bodyData)
 
     //get new account info
-	var accountInfo = models.CmdCreateAccount{}
+	var accountInfo = models.AccountObject{}
     json.Unmarshal(bytes, &accountInfo)
 
     //Valid E-mail
@@ -214,7 +214,7 @@ func LoginAccount(c *gin.Context){
     bytes, err := b64.StdEncoding.DecodeString(bodyData)
 
 	//get login info
-    var loginInfo = models.CmdCreateAccount{}
+    var loginInfo = models.AccountObject{}
     json.Unmarshal(bytes, &loginInfo)
     //fmt.Println("loginInfo = " + string(loginInfo))
     fmt.Println("account = " + loginInfo.Account + " - password = " + loginInfo.Password )
@@ -308,7 +308,7 @@ func ForgotPassword(c *gin.Context){
     bytes, err := b64.StdEncoding.DecodeString(bodyData)
 
 	//get account
-    var accountInfo = models.CmdForgotPassword{}
+    var accountInfo = models.ForgotPasswordObject{}
     json.Unmarshal(bytes, &accountInfo)
     //fmt.Println("loginInfo = " + string(loginInfo))
     fmt.Println("account = " + accountInfo.Account)
@@ -427,7 +427,7 @@ func ResetPassword(c *gin.Context){
     bytes, err := b64.StdEncoding.DecodeString(bodyData)
 
 	//get reset info
-    var resetInfo = models.CmdResetPassword{}
+    var resetInfo = models.ResetPasswordObject{}
     json.Unmarshal(bytes, &resetInfo)
 
     // Create the database handle, confirm driver is present
@@ -500,7 +500,7 @@ func ResetPassword(c *gin.Context){
                 fmt.Println("parse time error ", errParse.Error())
                 cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \" Unexpected error occurred !\"}")
                 cmd.Sign = myTool.GetSign(cmd)
-                appG.Response(http.StatusInternalServerError, cmd)
+                appG.Response(http.StatusOK, cmd)
                 return
              }
 
@@ -573,7 +573,7 @@ func GetDeviceList(c *gin.Context){
 
     appG := app.Gin{C: c}
     var cmd models.Command
-    var refreshToken models.RefreshToken
+    var refreshToken models.RefreshTokenObject
 
     //var td *jwt.Todo
     tokenAuth, err := myJwt.ExtractTokenMetadata(c.Request)
@@ -638,7 +638,7 @@ func Refresh_token(c *gin.Context){
 
    appG := app.Gin{C: c}
    var cmd models.Command
-   var refreshToken models.RefreshToken
+   var refreshToken models.RefreshTokenObject
    err := c.BindJSON(&refreshToken)
    if(err != nil){
       fmt.Println("Refresh Token error 1")
@@ -749,7 +749,7 @@ func Logout_account(c *gin.Context){
 
     appG := app.Gin{C: c}
     var cmd models.Command
-    var refreshToken models.RefreshToken
+    var refreshToken models.RefreshTokenObject
     err := c.BindJSON(&refreshToken)
     if(err != nil){
        fmt.Println("Logout error 1")

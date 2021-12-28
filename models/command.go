@@ -10,21 +10,28 @@ type Command struct {
 	Method string      `json:"method"`
 }
 
-type CmdCreateAccount struct {
+type AccountObject struct {
 	Account   string      `json:"account"`
 	Password   string      `json:"password"`
 }
 
-type CmdForgotPassword struct {
+type ForgotPasswordObject struct {
 	Account   string      `json:"account"`
 }
 
-type CmdResetPassword struct {
+type ResetPasswordObject struct {
 	Account   string      `json:"account"`
     Password   string      `json:"password"`
     Token      string      `json:"token"`
 }
 
-type RefreshToken struct {
+type RefreshTokenObject struct {
 	RefreshToken   string      `json:"refresh_token"`
+}
+
+type DeviceInfoObject struct {
+	Mac   string      `json:"mac"`
+	Name   string      `json:"name"`
+	Time   string      `json:"time"`
+	Type   string      `json:"type"`
 }
