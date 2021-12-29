@@ -119,7 +119,7 @@ func AddWebsocketToDB(mac string, name string) (bool, error){
 
     dt := time.Now()
     formatted := fmt.Sprintf("%d-%02d-%02d %02d:%02d:%02d", dt.Year(), dt.Month(), dt.Day(),dt.Hour(), dt.Minute(), dt.Second())
-    _, err1 := db.Exec("INSERT INTO device_info (mac, name, time, type) VALUES (\"" + mac + "\", \"" + name + "\", \"" + formatted + "\", 1)")
+    _, err1 := db.Exec("INSERT INTO device_info (mac, name, time, type, user_id) VALUES (\"" + mac + "\", \"" + name + "\", \"" + formatted + "\", 1, -1)")
     if err1 != nil {
        return false, err1
     }

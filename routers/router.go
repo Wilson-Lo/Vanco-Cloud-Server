@@ -29,8 +29,8 @@ func InitRouter() *gin.Engine{
     router.POST("/forgot_password", ForgotPassword)
     /** Reset Password **/
     router.POST("/reset_password", ResetPassword)
-    /** Device List **/
-    router.POST("/device_list", GetDeviceList)
+    /** All Device List **/
+    router.POST("/all_device_list", GetAllDeviceList)
     /** Refresh Token **/
     router.POST("/refresh_token", Refresh_token)
     /** Logout Account **/

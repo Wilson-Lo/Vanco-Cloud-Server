@@ -567,9 +567,9 @@ func ResetPassword(c *gin.Context){
 }
 
 /**
-*   Get Device List
+*   Get All Device List
 */
-func GetDeviceList(c *gin.Context){
+func GetAllDeviceList(c *gin.Context){
 
     appG := app.Gin{C: c}
     var cmd models.Command
@@ -613,14 +613,58 @@ func GetDeviceList(c *gin.Context){
           return
        }
 
-      var device_list = ""
+      // var deviceMap map[string] models.DeviceInfoObject
+       // Create the database handle, confirm driver is present
+       db, err := sql.Open("mysql", db.Cfg_device.FormatDSN())
+       if(err != nil){
+       	  fmt.Println("GetDeviceList - error 4")
+          cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \"Get Device error 4 !\"}")
+          cmd.Sign = myTool.GetSign(cmd)
+          appG.Response(http.StatusOK, cmd)
+          return
+       	  defer db.Close()
+       }
 
-      for key, _ := range passervice.GetWSList() {
-         device_list += " {\"mac\": \"" + key +  "\",\"type\": \"1\",\"name\": \"2\"} ,"
+       // See "Important settings" section.
+       db.SetConnMaxLifetime(time.Minute * 3)
+       db.SetMaxOpenConns(10)
+       db.SetMaxIdleConns(10)
+
+       sql, errDB := db.Query("SELECT * FROM device_info")
+       if errDB != nil {
+           fmt.Println("GetDeviceList - error 5")
+           cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \"Get Device error 5 !\"}")
+           cmd.Sign = myTool.GetSign(cmd)
+           appG.Response(http.StatusOK, cmd)
+           return
+       }
+
+       defer sql.Close()
+       var device_list = ""
+
+       //get all device
+       for sql.Next() {
+
+         var deviceInfo models.DeviceInfoObject
+         err := sql.Scan(&deviceInfo.ID, &deviceInfo.Mac, &deviceInfo.Name, &deviceInfo.Time, &deviceInfo.Type, &deviceInfo.UserId)
+
+         if err != nil {
+            fmt.Println("GetDeviceList - error 6")
+            cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \"Get Device error 6 !\"}")
+            cmd.Sign = myTool.GetSign(cmd)
+            appG.Response(http.StatusOK, cmd)
+            return
+         }
+
+         if(passervice.IsDeviceOnline(deviceInfo.Mac)){
+             device_list += " {\"mac\": \"" + deviceInfo.Mac +  "\",\"status\": true ,\"user_id\": " + strconv.Itoa(deviceInfo.UserId) +  ",\"type\": " + strconv.Itoa(deviceInfo.Type) + ",\"name\": \"" + deviceInfo.Name + "\"} ,"
+         }else{
+             device_list += " {\"mac\": \"" + deviceInfo.Mac +  "\",\"status\": false ,\"user_id\": " + strconv.Itoa(deviceInfo.UserId) +  ",\"type\": " + strconv.Itoa(deviceInfo.Type) + ",\"name\": \"" + deviceInfo.Name + "\"} ,"
+         }
       }
 
       device_list = myTool.RemoveLastRune(device_list)
-      fmt.Println("GetDeviceList - device_list ", "{\"result\": \"" + e.SUCCESS + "\" , \"message\": \"Get device list !\", \"device_list\":[" + device_list + "]}")
+      //fmt.Println("GetDeviceList - device_list ", "{\"result\": \"" + e.SUCCESS + "\" , \"message\": \"Get device list !\", \"device_list\":[" + device_list + "]}")
       fmt.Println("GetDeviceList - userId ", userId)
       cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.SUCCESS + "\" , \"message\": \"Get device list !\", \"device_list\":[" + device_list + "]}")
       cmd.Sign = myTool.GetSign(cmd)

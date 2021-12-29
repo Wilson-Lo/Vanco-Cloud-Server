@@ -49,6 +49,18 @@ func GetWSListCount() int {
      return len(wsMap)
 }
 
+//check websocket device is on-line or not
+func IsDeviceOnline(name string) bool{
+     if(wsMap[name] != nil){
+       return true
+     }else{
+       return false
+     }
+}
+
+
+
+
 //add http
 func AddToGinList(etag string, gin app.Gin) {
 	ginMap[etag] = gin

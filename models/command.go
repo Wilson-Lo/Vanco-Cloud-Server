@@ -30,8 +30,10 @@ type RefreshTokenObject struct {
 }
 
 type DeviceInfoObject struct {
+    ID   int      `json:"id"`
 	Mac   string      `json:"mac"`
 	Name   string      `json:"name"`
 	Time   string      `json:"time"`
-	Type   string      `json:"type"`
+	Type   int      `json:"type"`
+	UserId   int      `json:"user_id"`
 }
