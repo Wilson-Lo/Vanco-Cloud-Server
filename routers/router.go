@@ -18,23 +18,25 @@ func InitRouter() *gin.Engine{
     router.LoadHTMLFiles("asset/index.html")
    	router.Static("/asset", "asset")
    	router.GET("/", index)
-	router.POST("/pi", Connect)
-	router.GET("/ws", WSSConnect)
+	router.POST("/api/pi", Connect)
+	router.GET("/api/ws", WSSConnect)
 
 	/** Create Account **/
-	router.POST("/create_account", CreateAccount)
+	router.POST("/api/create_account", CreateAccount)
 	/** Login Account **/
-    router.POST("/login_account", LoginAccount)
+    router.POST("/api/login_account", LoginAccount)
     /** Forgot Password **/
-    router.POST("/forgot_password", ForgotPassword)
+    router.POST("/api/forgot_password", ForgotPassword)
     /** Reset Password **/
-    router.POST("/reset_password", ResetPassword)
+    router.POST("/api/reset_password", ResetPassword)
     /** All Device List **/
-    router.POST("/all_device_list", GetAllDeviceList)
+    router.POST("/api/all_device_list", GetAllDeviceList)
     /** Refresh Token **/
-    router.POST("/refresh_token", Refresh_token)
+    router.POST("/api/refresh_token", Refresh_token)
     /** Logout Account **/
-    router.POST("/logout_account", Logout_account)
+    router.POST("/api/logout_account", Logout_account)
+    /** Modify Device Name **/
+    router.POST("/api/device_name", Modify_Device_Name)
 
 	return router
 }

@@ -22,6 +22,18 @@ import (
 	"github.com/dgrijalva/jwt-go"
 )
 
+/**
+*
+*  Error HTTPs Feedback
+*/
+func ErrorFeedback(appG app.Gin, feedbackMessage string, logMessage string){
+     var cmd models.Command
+     fmt.Println(logMessage)
+     cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \" " + feedbackMessage + " !\"}")
+     cmd.Sign = myTool.GetSign(cmd)
+     appG.Response(http.StatusOK, cmd)
+}
+
 func Connect(c *gin.Context) {
 
     appG := app.Gin{C: c}
@@ -36,19 +48,16 @@ func Connect(c *gin.Context) {
     //var td *jwt.Todo
     tokenAuth, err := myJwt.ExtractTokenMetadata(c.Request)
     if err != nil {
-       fmt.Println("unauthorized 1 ")
-       cmd.Body = "{\"result\": \"" + e.FAILURE + "\" , \"message\": \" unauthorized !\"}"
-       appG.Response(http.StatusOK, cmd)
+       ErrorFeedback(appG, "Unauthorized !", "Connect - Unauthorized 1")
        return
-     }
+    }
 
     userId, err := myJwt.FetchAuth(tokenAuth)
     if err != nil {
-      fmt.Println("unauthorized 2 ")
-      cmd.Body = "{\"result\": \"" + e.FAILURE + "\" , \"message\": \" unauthorized !\"}"
-      appG.Response(http.StatusOK, cmd)
-      return
+       ErrorFeedback(appG, "Unauthorized !", "Connect - Unauthorized 2")
+       return
     }
+
     fmt.Println("userId " , userId)
 	if cmd.Method == "cmd" {
 		//signKey, err := connectService.GenerateSignKey(cmd)
@@ -87,17 +96,14 @@ func Connect(c *gin.Context) {
 */
 func CreateAccount(c *gin.Context){
 
-    appG := app.Gin{C: c}
-    var cmd models.Command
-	err := c.BindJSON(&cmd)
+     appG := app.Gin{C: c}
+     var cmd models.Command
+	 err := c.BindJSON(&cmd)
 
-	if err != nil {
-        cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \" Unexpected error occurred !\"}")
-        cmd.Sign = myTool.GetSign(cmd)
-        appG.Response(http.StatusOK, cmd)
-		return
-	}
-
+	 if err != nil {
+       ErrorFeedback(appG, "Unexpected error occurred !", "CreateAccount - Unexpected error occurred 1 ")
+       return
+	 }
 
 	 var sign = myTool.GetSign(cmd)
 
@@ -105,9 +111,7 @@ func CreateAccount(c *gin.Context){
      if(strings.Compare(sign, cmd.Sign) == 0){
         fmt.Println("Sign is correct !")
      }else{
-        cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \" Unexpected error occurred !\"}")
-        cmd.Sign = myTool.GetSign(cmd)
-        appG.Response(http.StatusOK, cmd)
+        ErrorFeedback(appG, "Unexpected error occurred !", "CreateAccount - Unexpected error occurred 2 ")
         return
      }
 
@@ -121,16 +125,15 @@ func CreateAccount(c *gin.Context){
 
     //Valid E-mail
     if(!myTool.ValidEmail(accountInfo.Account)){
-       cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \" Email address format not correct !\"}")
-       cmd.Sign = myTool.GetSign(cmd)
-       appG.Response(http.StatusOK, cmd)
+       ErrorFeedback(appG, "Email address format not correct !", "CreateAccount - Email address format not correct !")
        return
     }
 
     // Create the database handle, confirm driver is present
 	db, err := sql.Open("mysql", db.Cfg.FormatDSN())
 	if(err != nil){
-	   fmt.Println("Connect to DB Failed !")
+	   ErrorFeedback(appG, "Unexpected error occurred !", "CreateAccount - Connect to DB Failed !")
+	   return
 	   defer db.Close()
 	}
 
@@ -165,9 +168,7 @@ func CreateAccount(c *gin.Context){
      //  fmt.Println("INSERT INTO users (account, password, role, time) VALUES (\"" + accountInfo.Account + "\", \"" + accountInfo.Password + "\", 2, \""+ formatted +"\")")
        _, err := db.Exec("INSERT INTO users (account, password, role, time) VALUES (\"" + accountInfo.Account + "\", \"" + pwMD5 + "\", 2, \""+ formatted +"\")")
        if err != nil {
-       		cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \" Add new account failed\"}")
-            cmd.Sign = myTool.GetSign(cmd)
-            appG.Response(http.StatusOK, cmd)
+            ErrorFeedback(appG, "Add new account failed !", "CreateAccount - Add new account failed !")
        		return
        }
 
@@ -175,9 +176,8 @@ func CreateAccount(c *gin.Context){
        cmd.Sign = myTool.GetSign(cmd)
        appG.Response(http.StatusOK, cmd)
     }else{
-       cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \" This E-Mail has been registered\"}")
-       cmd.Sign = myTool.GetSign(cmd)
-       appG.Response(http.StatusOK, cmd)
+       ErrorFeedback(appG, "This E-Mail has been registered !", "CreateAccount - This E-Mail has been registered !")
+       return
     }
 }
 
@@ -192,10 +192,8 @@ func LoginAccount(c *gin.Context){
 	err := c.BindJSON(&cmd)
 
 	if err != nil {
-       cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \" Unexpected error occurred !\"}")
-       cmd.Sign = myTool.GetSign(cmd)
-       appG.Response(http.StatusOK, cmd)
-		return
+	   ErrorFeedback(appG, "Unexpected error occurred !", "LoginAccount - Unexpected error occurred 1 !")
+       return
 	}
 
     var sign = myTool.GetSign(cmd)
@@ -203,9 +201,7 @@ func LoginAccount(c *gin.Context){
     if(strings.Compare(sign, cmd.Sign) == 0){
         fmt.Println("Sign is correct !")
     }else{
-       cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \" Unexpected error occurred !\"}")
-       cmd.Sign = myTool.GetSign(cmd)
-       appG.Response(http.StatusOK, cmd)
+       ErrorFeedback(appG, "Unexpected error occurred !", "LoginAccount - Unexpected error occurred 2 !")
        return
     }
 
@@ -221,15 +217,16 @@ func LoginAccount(c *gin.Context){
     // Create the database handle, confirm driver is present
     db, err := sql.Open("mysql", db.Cfg.FormatDSN())
     if(err != nil){
-        fmt.Println("Connect to DB Failed !")
+       ErrorFeedback(appG, "Unexpected error occurred (DataBase) 1 !", "LoginAccount - Unexpected error occurred (DataBase) 1 !")
+       return
     }
     defer db.Close()
 
 	sql := fmt.Sprintf("SELECT * FROM users WHERE account = '" + loginInfo.Account + "';")
     rows, err := db.Query(sql)
     if err != nil {
-       fmt.Println("SQLite occur error : " + err.Error())
-       return
+        ErrorFeedback(appG, "Unexpected error occurred (DataBase) 2 !", "LoginAccount - Unexpected error occurred (DataBase) 2 !")
+        return
     }
     defer rows.Close()
 
@@ -242,9 +239,7 @@ func LoginAccount(c *gin.Context){
     if(rows.Next()) {
         err := rows.Scan(&id, &accounts, &password, &role, &time)
         if err != nil {
-           cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \"Account or Password not correct !\"}")
-           cmd.Sign = myTool.GetSign(cmd)
-           appG.Response(http.StatusInternalServerError, cmd)
+           ErrorFeedback(appG, "Unexpected error occurred (DataBase) 3 !", "LoginAccount - Unexpected error occurred (DataBase) 3 !")
            return
         }
 
@@ -253,26 +248,26 @@ func LoginAccount(c *gin.Context){
        if(strings.Compare(userEnterPassword, password) == 0){
           token, err := myJwt.CreateToken(uint64(id))
           if(err != nil){
-            fmt.Println("create token error : ", err.Error())
+            ErrorFeedback(appG, "Unauthorized !", "LoginAccount - Create Token Error !")
+            return
           }
           saveErr := myJwt.CreateAuth(uint64(id), token)
           if saveErr != nil {
-              fmt.Println("save token error : ", saveErr.Error())
+             ErrorFeedback(appG, "Unauthorized !", "LoginAccount - Save Token Error !")
+             return
           }
           fmt.Println("AccessToken : ", token.AccessToken, " RefreshToken : ", token.RefreshToken)
           cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.SUCCESS + "\" , \"message\": \"Login Successful !\" , \"access_token\": \"" + token.AccessToken + "\", \"refresh_token\": \"" + token.RefreshToken + "\"}")
           cmd.Sign = myTool.GetSign(cmd)
           appG.Response(http.StatusOK, cmd)
        }else{
-          cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \"Account or Password not correct !\"}")
-          cmd.Sign = myTool.GetSign(cmd)
-          appG.Response(http.StatusOK, cmd)
+          ErrorFeedback(appG, "Account or Password not correct !", "LoginAccount - Account or Password not correct !")
+          return
        }
     }else{
        //account not exist
-       cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \"Account or Password not correct !\"}")
-       cmd.Sign = myTool.GetSign(cmd)
-       appG.Response(http.StatusOK, cmd)
+       ErrorFeedback(appG, "Account or Password not correct !", "LoginAccount - Account or Password not correct !")
+       return
     }
 }
 
@@ -286,10 +281,8 @@ func ForgotPassword(c *gin.Context){
 	err := c.BindJSON(&cmd)
 
 	if err != nil {
-       cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \" Unexpected error occurred !\"}")
-       cmd.Sign = myTool.GetSign(cmd)
-       appG.Response(http.StatusOK, cmd)
-		return
+	   ErrorFeedback(appG, "Unexpected error occurred !", "ForgotPassword - error 1 !")
+	   return
 	}
 
     var sign = myTool.GetSign(cmd)
@@ -297,10 +290,8 @@ func ForgotPassword(c *gin.Context){
     if(strings.Compare(sign, cmd.Sign) == 0){
         fmt.Println("Sign is correct !")
     }else{
-       cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \" Unexpected error occurred !\"}")
-       cmd.Sign = myTool.GetSign(cmd)
-       appG.Response(http.StatusOK, cmd)
-       return
+      	ErrorFeedback(appG, "Unexpected error occurred !", "ForgotPassword - error 2 !")
+      	return
     }
 
     var bodyData = strings.ReplaceAll(cmd.Body, e.SaltFirst, "")
@@ -315,14 +306,15 @@ func ForgotPassword(c *gin.Context){
     // Create the database handle, confirm driver is present
     db, err := sql.Open("mysql", db.Cfg.FormatDSN())
     if(err != nil){
-        fmt.Println("Connect to DB Failed !")
+       ErrorFeedback(appG, "Unexpected error occurred (DataBase) 1 !", "ForgotPassword - Unexpected error occurred (DataBase) 1 !")
+       return
     }
     defer db.Close()
 
 	sql := fmt.Sprintf("SELECT * FROM users WHERE account = '" + accountInfo.Account + "';")
     rows, err := db.Query(sql)
     if err != nil {
-       fmt.Println("SQLite occur error : " + err.Error())
+       ErrorFeedback(appG, "Unexpected error occurred (DataBase) 2 !", "ForgotPassword - Unexpected error occurred (DataBase) 2 !")
        return
     }
     defer rows.Close()
@@ -336,10 +328,8 @@ func ForgotPassword(c *gin.Context){
     if(rows.Next()) {
         err := rows.Scan(&id, &accounts, &password, &role, &times)
         if err != nil {
-           cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \" Unexpected error occurred !\"}")
-           cmd.Sign = myTool.GetSign(cmd)
-           appG.Response(http.StatusInternalServerError, cmd)
-           return
+            ErrorFeedback(appG, "Unexpected error occurred (DataBase) 3 !", "ForgotPassword - Unexpected error occurred (DataBase) 3 !")
+            return
         }
 
         //create token
@@ -350,11 +340,8 @@ func ForgotPassword(c *gin.Context){
         sql := ("SELECT * FROM reset_tickets WHERE account = '" + accountInfo.Account + "';")
         tickets_row, err := db.Query(sql)
         if err != nil {
-           fmt.Println("query error = "+ err.Error())
-           cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \" Unexpected error occurred !\"}")
-           cmd.Sign = myTool.GetSign(cmd)
-           appG.Response(http.StatusInternalServerError, cmd)
-           return
+            ErrorFeedback(appG, "Unexpected error occurred (DataBase) 4 !", "ForgotPassword - Unexpected error occurred (DataBase) 4 !")
+            return
         }
         defer tickets_row.Close()
         dt := time.Now().Format("2006-01-02 15:04:05")
@@ -365,20 +352,14 @@ func ForgotPassword(c *gin.Context){
           //delete old token
            _, err := db.Exec("UPDATE reset_tickets SET token_hash='" + myTool.ToMD5(newToken) + "', time='" + dt + "', token_used=0 WHERE account = '" + accountInfo.Account + "';")
            if err != nil {
-             fmt.Println("UPDATE token error = " + err.Error())
-             cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \" Unexpected error occurred (DataBase) ! \"}")
-             cmd.Sign = myTool.GetSign(cmd)
-             appG.Response(http.StatusOK, cmd)
+             ErrorFeedback(appG, "Unexpected error occurred (DataBase) 5 !", "ForgotPassword - Unexpected error occurred (DataBase) 5 !")
              return
            }
         }else{
            //save new token to db
            _, err1 := db.Exec("INSERT INTO reset_tickets (account, token_hash, time, token_used) VALUES (?, ?, ?, ?)", accountInfo.Account, myTool.ToMD5(newToken), dt,  0)
            if err1 != nil {
-              fmt.Println("add new  token error = " + err1.Error())
-              cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \" Unexpected error occurred (DataBase) ! \"}")
-              cmd.Sign = myTool.GetSign(cmd)
-              appG.Response(http.StatusOK, cmd)
+              ErrorFeedback(appG, "Unexpected error occurred (DataBase) 6 !", "ForgotPassword - Unexpected error occurred (DataBase) 6 !")
               return
            }
         }
@@ -391,9 +372,8 @@ func ForgotPassword(c *gin.Context){
         go myMail.SendMail(accountInfo.Account, url)
     }else{
        //account not exist
-       cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \"Account is not exist !\"}")
-       cmd.Sign = myTool.GetSign(cmd)
-       appG.Response(http.StatusOK, cmd)
+       ErrorFeedback(appG, "Account is not exist !", "ForgotPassword - Account is not exist !")
+       return
     }
 }
 
@@ -405,10 +385,8 @@ func ResetPassword(c *gin.Context){
 	err := c.BindJSON(&cmd)
 
 	if err != nil {
-       cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \" Unexpected error occurred !\"}")
-       cmd.Sign = myTool.GetSign(cmd)
-       appG.Response(http.StatusOK, cmd)
-		return
+       ErrorFeedback(appG, "Unexpected error occurred !", "ResetPassword - error 1 !")
+	   return
 	}
 
     var sign = myTool.GetSign(cmd)
@@ -416,9 +394,7 @@ func ResetPassword(c *gin.Context){
     if(strings.Compare(sign, cmd.Sign) == 0){
         fmt.Println("Sign is correct !")
     }else{
-       cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \" Unexpected error occurred !\"}")
-       cmd.Sign = myTool.GetSign(cmd)
-       appG.Response(http.StatusOK, cmd)
+       ErrorFeedback(appG, "Unexpected error occurred !", "ResetPassword - error 2 !")
        return
     }
 
@@ -433,14 +409,15 @@ func ResetPassword(c *gin.Context){
     // Create the database handle, confirm driver is present
     db, err := sql.Open("mysql", db.Cfg.FormatDSN())
     if(err != nil){
-        fmt.Println("Connect to DB Failed !")
+        ErrorFeedback(appG, "Unexpected error occurred (DataBase) 1 !", "ResetPassword - Unexpected error occurred (DataBase) 1 !")
+        return
     }
     defer db.Close()
 
 	sql := fmt.Sprintf("SELECT * FROM users WHERE account = '" + resetInfo.Account + "';")
     rows, err := db.Query(sql)
     if err != nil {
-       fmt.Println("SQLite occur error : " + err.Error())
+       ErrorFeedback(appG, "Unexpected error occurred (DataBase) 2 !", "ResetPassword - Unexpected error occurred (DataBase) 2 !")
        return
     }
     defer rows.Close()
@@ -455,19 +432,14 @@ func ResetPassword(c *gin.Context){
     if(rows.Next()) {
         err := rows.Scan(&id, &accounts, &password, &role, &times)
         if err != nil {
-           cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \" Unexpected error occurred !\"}")
-           cmd.Sign = myTool.GetSign(cmd)
-           appG.Response(http.StatusInternalServerError, cmd)
-           return
+          ErrorFeedback(appG, "Unexpected error occurred (DataBase) 3 !", "ResetPassword - Unexpected error occurred (DataBase) 3 !")
+          return
         }
 
         sql := ("SELECT * FROM reset_tickets WHERE account = '" + resetInfo.Account + "';")
         tickets_row, err := db.Query(sql)
         if err != nil {
-           fmt.Println("query error = "+ err.Error())
-           cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \" Unexpected error occurred !\"}")
-           cmd.Sign = myTool.GetSign(cmd)
-           appG.Response(http.StatusInternalServerError, cmd)
+           ErrorFeedback(appG, "Unexpected error occurred (DataBase) 4 !", "ResetPassword - Unexpected error occurred (DataBase) 4 !")
            return
         }
         defer tickets_row.Close()
@@ -483,10 +455,7 @@ func ResetPassword(c *gin.Context){
           err := tickets_row.Scan(&id, &accounts, &token_hash, &expireTime, &token_used)
           fmt.Println("query accounts = ", accounts, "token_hash = ", token_hash, "expireTime = ", expireTime , " token_used = ", token_used)
           if err != nil {
-           fmt.Println("query error = ", err.Error())
-           cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \" Unexpected error occurred !\"}")
-           cmd.Sign = myTool.GetSign(cmd)
-           appG.Response(http.StatusInternalServerError, cmd)
+           ErrorFeedback(appG, "Unexpected error occurred (DataBase) 5 !", "ResetPassword - Unexpected error occurred (DataBase) 5 !")
            return
          }
          fmt.Println("https accounts = ", resetInfo.Account, " token_hash = ", resetInfo.Token, " password = ", resetInfo.Password)
@@ -497,10 +466,7 @@ func ResetPassword(c *gin.Context){
              tokenExpireTime, errParse := time.ParseInLocation("2006-01-02 15:04:05", expireTime, time.Local)
 
              if errParse != nil {
-                fmt.Println("parse time error ", errParse.Error())
-                cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \" Unexpected error occurred !\"}")
-                cmd.Sign = myTool.GetSign(cmd)
-                appG.Response(http.StatusOK, cmd)
+                ErrorFeedback(appG, "Unexpected error occurred !", "ResetPassword - error 3 !")
                 return
              }
 
@@ -508,36 +474,26 @@ func ResetPassword(c *gin.Context){
              elapsed := dt.Sub(tokenExpireTime)
              h, _ := time.ParseDuration(myTool.ShortDur(elapsed))
              //900 seconds, 15 mins
-             if(h.Seconds() > 900){
-                 fmt.Println("over 15 mins")
-                 cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \"This Link has expired !\"}")
-                 cmd.Sign = myTool.GetSign(cmd)
-                 appG.Response(http.StatusOK, cmd)
+             if(h.Seconds() > 900){//over 15 mins
+                 ErrorFeedback(appG, "This Link has expired !", "ResetPassword - This Link has expired 1 !")
+                 return
              }else{
                  fmt.Println("less than 15 mins")
                  if( token_used > 0 ){
-                     fmt.Println("this token is used")
-                     cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \"This Link has expired !\"}")
-                     cmd.Sign = myTool.GetSign(cmd)
-                     appG.Response(http.StatusOK, cmd)
+                     ErrorFeedback(appG, "This Link has expired !", "ResetPassword - This Link has expired 2 !")
+                     return
                  }else{
                     fmt.Println("this token isn't used")
                     //update password
                     _, err := db.Exec("UPDATE users SET password='" + myTool.ToMD5(resetInfo.Password) + "' WHERE account = '" + resetInfo.Account + "';")
                     if err != nil {
-                       fmt.Println("UPDATE password error = " + err.Error())
-                       cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \" Unexpected error occurred (DataBase) ! \"}")
-                       cmd.Sign = myTool.GetSign(cmd)
-                       appG.Response(http.StatusOK, cmd)
+                       ErrorFeedback(appG, "Unexpected error occurred (DataBase) 6 !", "ResetPassword - Unexpected error occurred (DataBase) 6 !")
                        return
                     }
 
                     _, err1 := db.Exec("UPDATE reset_tickets SET token_used=1 WHERE account = '" + resetInfo.Account + "';")
                     if err1 != nil {
-                       fmt.Println("UPDATE password error = " + err1.Error())
-                       cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \" Unexpected error occurred (DataBase) ! \"}")
-                       cmd.Sign = myTool.GetSign(cmd)
-                       appG.Response(http.StatusOK, cmd)
+                       ErrorFeedback(appG, "Unexpected error occurred (DataBase) 7 !", "ResetPassword - Unexpected error occurred (DataBase) 7 !")
                        return
                     }
                     //feedback http request
@@ -547,22 +503,17 @@ func ResetPassword(c *gin.Context){
                  }
              }
          }else{
-            cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \"This Link has expired !\"}")
-            cmd.Sign = myTool.GetSign(cmd)
-            appG.Response(http.StatusOK, cmd)
+             ErrorFeedback(appG, "This Link has expired !", "ResetPassword - This Link has expired 3 !")
+             return
          }
 
         }else{
            //can't find in the reset_tickets table
-           cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \"This Link has expired !\"}")
-           cmd.Sign = myTool.GetSign(cmd)
-           appG.Response(http.StatusOK, cmd)
+           ErrorFeedback(appG, "This Link has expired !", "ResetPassword - This Link has expired 4 !")
         }
     }else{
        //account not exist
-       cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \"Account is not exist !\"}")
-       cmd.Sign = myTool.GetSign(cmd)
-       appG.Response(http.StatusOK, cmd)
+       ErrorFeedback(appG, "Account is not exist !", "ResetPassword - Account is not exist !")
     }
 }
 
@@ -581,10 +532,7 @@ func GetAllDeviceList(c *gin.Context){
         fmt.Println("GetDeviceList - need to refresh token")
         err := c.BindJSON(&refreshToken)
         if(err != nil){
-          fmt.Println("GetDeviceList - error 1")
-          cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \"Get Device error 1 !\"}")
-          cmd.Sign = myTool.GetSign(cmd)
-          appG.Response(http.StatusOK, cmd)
+          ErrorFeedback(appG, "Get All Device error 1 !", "GetAllDeviceList - Get All Device error 1 !")
           return
         }
         fmt.Println("GetDeviceList - refresh token  = ", refreshToken.RefreshToken)
@@ -597,19 +545,13 @@ func GetAllDeviceList(c *gin.Context){
            cmd.Sign = myTool.GetSign(cmd)
            appG.Response(http.StatusOK, cmd)
         }else{
-           fmt.Println("GetDeviceList - error 3")
-           cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \"Need to log-out !\"}")
-           cmd.Sign = myTool.GetSign(cmd)
-           appG.Response(http.StatusOK, cmd)
+           ErrorFeedback(appG, "Need to log-out !", "GetAllDeviceList - Get All Device error 3 !")
            return
         }
     }else{
        userId, err := myJwt.FetchAuth(tokenAuth)
        if err != nil {
-          fmt.Println("GetDeviceList - unauthorized !")
-          cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \" unauthorized !\"}")
-          cmd.Sign = myTool.GetSign(cmd)
-          appG.Response(http.StatusOK, cmd)
+          ErrorFeedback(appG, "Unauthorized !", "GetAllDeviceList - unauthorized !")
           return
        }
 
@@ -617,13 +559,10 @@ func GetAllDeviceList(c *gin.Context){
        // Create the database handle, confirm driver is present
        db, err := sql.Open("mysql", db.Cfg_device.FormatDSN())
        if(err != nil){
-       	  fmt.Println("GetDeviceList - error 4")
-          cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \"Get Device error 4 !\"}")
-          cmd.Sign = myTool.GetSign(cmd)
-          appG.Response(http.StatusOK, cmd)
+          ErrorFeedback(appG, "Get All Device error 4 !", "GetAllDeviceList - Get All Device error 4 !")
           return
-       	  defer db.Close()
        }
+       defer db.Close()
 
        // See "Important settings" section.
        db.SetConnMaxLifetime(time.Minute * 3)
@@ -632,10 +571,7 @@ func GetAllDeviceList(c *gin.Context){
 
        sql, errDB := db.Query("SELECT * FROM device_info")
        if errDB != nil {
-           fmt.Println("GetDeviceList - error 5")
-           cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \"Get Device error 5 !\"}")
-           cmd.Sign = myTool.GetSign(cmd)
-           appG.Response(http.StatusOK, cmd)
+           ErrorFeedback(appG, "Get All Device error 5 !", "GetAllDeviceList - Get All Device error 5 !")
            return
        }
 
@@ -649,10 +585,7 @@ func GetAllDeviceList(c *gin.Context){
          err := sql.Scan(&deviceInfo.ID, &deviceInfo.Mac, &deviceInfo.Name, &deviceInfo.Time, &deviceInfo.Type, &deviceInfo.UserId)
 
          if err != nil {
-            fmt.Println("GetDeviceList - error 6")
-            cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \"Get Device error 6 !\"}")
-            cmd.Sign = myTool.GetSign(cmd)
-            appG.Response(http.StatusOK, cmd)
+            ErrorFeedback(appG, "Get All Device error 6 !", "GetAllDeviceList - Get All Device error 6 !")
             return
          }
 
@@ -685,10 +618,8 @@ func Refresh_token(c *gin.Context){
    var refreshToken models.RefreshTokenObject
    err := c.BindJSON(&refreshToken)
    if(err != nil){
-      fmt.Println("Refresh Token error 1")
-      cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \"Refresh Token error 1 !\"}")
-      cmd.Sign = myTool.GetSign(cmd)
-      appG.Response(http.StatusOK, cmd)
+      ErrorFeedback(appG, "Refresh Token error 1 !", "Refresh_token - Refresh Token error 1")
+      return
    }
 
    fmt.Println("refresh token  = ", refreshToken.RefreshToken)
@@ -704,69 +635,50 @@ func Refresh_token(c *gin.Context){
 
    //if there is an error, the token must have expired
    if err != nil {
-         fmt.Println("Refresh Token error 2")
-       cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \"Refresh Token error 2 !\"}")
-       cmd.Sign = myTool.GetSign(cmd)
-       appG.Response(http.StatusOK, cmd)
+     ErrorFeedback(appG, "Refresh Token error 2 !", "Refresh_token - Refresh Token error 2")
      return
    }
 
   //is token valid?
    if _, ok := token.Claims.(jwt.Claims); !ok && !token.Valid {
-         fmt.Println("Refresh Token error 3")
-      cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \"Refresh Token error 3 !\"}")
-      cmd.Sign = myTool.GetSign(cmd)
-      appG.Response(http.StatusOK, cmd)
+     ErrorFeedback(appG, "Refresh Token error 3 !", "Refresh_token - Refresh Token error 3")
      return
    }
 
    //Since token is valid, get the uuid:
    claims, ok := token.Claims.(jwt.MapClaims) //the token claims should conform to MapClaims
    if ok && token.Valid {
+
      refreshUuid, ok := claims["refresh_uuid"].(string) //convert the interface to string
      if !ok {
-           fmt.Println("Refresh Token error 4")
-        cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \"Refresh Token error 4 !\"}")
-        cmd.Sign = myTool.GetSign(cmd)
-        appG.Response(http.StatusOK, cmd)
+        ErrorFeedback(appG, "Refresh Token error 4 !", "Refresh_token - Refresh Token error 4")
         return
      }
+
      userId, err := strconv.ParseUint(fmt.Sprintf("%.f", claims["user_id"]), 10, 64)
      if err != nil {
-           fmt.Println("Refresh Token error 5")
-        cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \"Refresh Token error 5 !\"}")
-        cmd.Sign = myTool.GetSign(cmd)
-        appG.Response(http.StatusOK, cmd)
+        ErrorFeedback(appG, "Refresh Token error 5 !", "Refresh_token - Refresh Token error 5")
         return
      }
      fmt.Println("refreshUuid ", refreshUuid)
      //Delete the previous Refresh Token
      deleted, delErr := myJwt.DeleteAuth(refreshUuid)
      if delErr != nil || deleted == 0 { //if any goes wrong
-        fmt.Println("Refresh Token error 6")
-        cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \"Refresh Token error 6 !\"}")
-        cmd.Sign = myTool.GetSign(cmd)
-        appG.Response(http.StatusOK, cmd)
+        ErrorFeedback(appG, "Refresh Token error 6 !", "Refresh_token - Refresh Token error 6")
         return
      }
 
     //Create new pairs of refresh and access tokens
      ts, createErr := myJwt.CreateToken(userId)
      if  createErr != nil {
-       fmt.Println("Refresh Token error 7")
-       cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \"Refresh Token error 7 !\"}")
-       cmd.Sign = myTool.GetSign(cmd)
-       appG.Response(http.StatusOK, cmd)
+       ErrorFeedback(appG, "Refresh Token error 7 !", "Refresh_token - Refresh Token error 7")
        return
      }
 
      //save the tokens metadata to redis
      saveErr := myJwt.CreateAuth(userId, ts)
      if saveErr != nil {
-        fmt.Println("Refresh Token error 8")
-        cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \"Refresh Token error 8 !\"}")
-        cmd.Sign = myTool.GetSign(cmd)
-        appG.Response(http.StatusOK, cmd)
+        ErrorFeedback(appG, "Refresh Token error 8 !", "Refresh_token - Refresh Token error 8")
         return
      }
  /*    tokens := map[string]string{
@@ -778,10 +690,8 @@ func Refresh_token(c *gin.Context){
      cmd.Sign = myTool.GetSign(cmd)
      appG.Response(http.StatusOK, cmd)
    } else {
-         fmt.Println("Refresh Token error 9")
-      cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \"Refresh Token error 9 !\"}")
-      cmd.Sign = myTool.GetSign(cmd)
-      appG.Response(http.StatusOK, cmd)
+      ErrorFeedback(appG, "Refresh Token error 9 !", "Refresh_token - Refresh Token error 9")
+      return
    }
 }
 
@@ -796,10 +706,7 @@ func Logout_account(c *gin.Context){
     var refreshToken models.RefreshTokenObject
     err := c.BindJSON(&refreshToken)
     if(err != nil){
-       fmt.Println("Logout error 1")
-       cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \"Logout error 1 !\"}")
-       cmd.Sign = myTool.GetSign(cmd)
-       appG.Response(http.StatusOK, cmd)
+       ErrorFeedback(appG, "Logout error 1 !", "Logout_account - Logout error 1")
        return
     }
     fmt.Println("refresh token  = ", refreshToken.RefreshToken)
@@ -814,20 +721,14 @@ func Logout_account(c *gin.Context){
           //Delete the access token
           deleted, delErr := myJwt.DeleteAuth(tokenGroup.AccessUuid)
           if delErr != nil || deleted == 0 { //if any goes wrong
-             fmt.Println("Logout error 2")
-             cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \"Logout error 2 !\"}")
-             cmd.Sign = myTool.GetSign(cmd)
-             appG.Response(http.StatusOK, cmd)
+             ErrorFeedback(appG, "Logout error 2 !", "Logout_account - Logout error 2")
              return
           }
           cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.SUCCESS + "\" , \"message\": \" Logout successful !\" }")
           cmd.Sign = myTool.GetSign(cmd)
           appG.Response(http.StatusOK, cmd)
        }else{
-          fmt.Println("Logout error 4")
-          cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \"Logout error 4 !\"}")
-          cmd.Sign = myTool.GetSign(cmd)
-          appG.Response(http.StatusOK, cmd)
+          ErrorFeedback(appG, "Logout error 4 !", "Logout_account - Logout error 4")
           return
        }
      }else{
@@ -835,10 +736,7 @@ func Logout_account(c *gin.Context){
         //Delete the access token
         deleted, delErr := myJwt.DeleteAuth(tokenAuth.AccessUuid)
         if delErr != nil || deleted == 0 { //if any goes wrong
-          fmt.Println("Logout error 2")
-          cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \"Logout error 3 !\"}")
-          cmd.Sign = myTool.GetSign(cmd)
-          appG.Response(http.StatusOK, cmd)
+          ErrorFeedback(appG, "Logout error 3 !", "Logout_account - Logout error 3")
           return
         }
         fmt.Println("logout successful !")
@@ -846,4 +744,63 @@ func Logout_account(c *gin.Context){
         cmd.Sign = myTool.GetSign(cmd)
         appG.Response(http.StatusOK, cmd)
      }
+}
+
+/**
+* Modify Device Name
+*/
+func Modify_Device_Name(c *gin.Context){
+
+    appG := app.Gin{C: c}
+    var cmd models.Command
+    var renameInfo models.DeviceRenameObject
+    err := c.BindJSON(&renameInfo)
+    if(err != nil){
+        ErrorFeedback(appG, "Unexpected error occurred !", "Modify_Device_Name - error 1 !")
+        return
+    }
+
+    //var td *jwt.Todo
+    _, err = myJwt.ExtractTokenMetadata(c.Request)
+    if err != nil {
+
+       fmt.Println("Modify_Device_Name - refresh token  = ", renameInfo.RefreshToken)
+       //get new token
+       var  tokenGroup = myJwt.Refresh_token(renameInfo.RefreshToken)
+        if(tokenGroup != nil){
+           fmt.Println("Modify_Device_Name - error 2 ")
+           cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \"Get Device error 2 !\" }")
+           cmd.Extra = "{ \"access_token\": \"" + tokenGroup.AccessToken + "\" ,  \"refresh_token\": \"" + tokenGroup.RefreshToken + "\"}"
+           cmd.Sign = myTool.GetSign(cmd)
+           appG.Response(http.StatusOK, cmd)
+        }else{
+           ErrorFeedback(appG, "Need to log-out !", "Modify_Device_Name - error 3 !")
+           return
+        }
+
+    }else{
+          // Create the database handle, confirm driver is present
+         db, err := sql.Open("mysql", db.Cfg_device.FormatDSN())
+      	 defer db.Close()
+      	 if(err != nil){
+      	   ErrorFeedback(appG, "Unexpected error occurred !", "Modify_Device_Name - connect db error !")
+      	   return
+      	 }
+
+         // See "Important settings" section.
+         db.SetConnMaxLifetime(time.Minute * 3)
+         db.SetMaxOpenConns(10)
+         db.SetMaxIdleConns(10)
+
+         _, err1 := db.Exec("UPDATE device_info SET name='" + renameInfo.Name + "' WHERE mac = '" + renameInfo.Mac + "';")
+         if err1 != nil {
+            ErrorFeedback(appG, "Unexpected error occurred !", "Modify_Device_Name - update db error !")
+            return
+         }
+
+         //feedback http request
+         cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.SUCCESS + "\" , \"message\": \"Rename successful !\"}")
+         cmd.Sign = myTool.GetSign(cmd)
+         appG.Response(http.StatusOK, cmd)
+    }
 }

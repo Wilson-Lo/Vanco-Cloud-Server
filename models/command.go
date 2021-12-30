@@ -37,3 +37,9 @@ type DeviceInfoObject struct {
 	Type   int      `json:"type"`
 	UserId   int      `json:"user_id"`
 }
+
+type DeviceRenameObject struct {
+    RefreshToken   string      `json:"refresh_token"`
+	Name   string      `json:"name"`
+	Mac   string      `json:"mac"`
+}
