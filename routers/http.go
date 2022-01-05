@@ -804,3 +804,77 @@ func Modify_Device_Name(c *gin.Context){
          appG.Response(http.StatusOK, cmd)
     }
 }
+
+/**
+* Get User Info
+*/
+func Get_User_Info(c *gin.Context){
+
+    appG := app.Gin{C: c}
+    var cmd models.Command
+    var refreshToken models.RefreshTokenObject
+    err := c.BindJSON(&refreshToken)
+    if(err != nil){
+        ErrorFeedback(appG, "Unexpected error occurred !", "Get_User_Info - error 1 !")
+        return
+    }
+
+    //var td *jwt.Todo
+    tokenAuth, err := myJwt.ExtractTokenMetadata(c.Request)
+    if err != nil {
+
+       fmt.Println("Get_User_Info - refresh token  = ", refreshToken.RefreshToken)
+       //get new token
+       var  tokenGroup = myJwt.Refresh_token(refreshToken.RefreshToken)
+        if(tokenGroup != nil){
+           fmt.Println("Get_User_Info - error 2 ")
+           cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \"Get Device error 2 !\" }")
+           cmd.Extra = "{ \"access_token\": \"" + tokenGroup.AccessToken + "\" ,  \"refresh_token\": \"" + tokenGroup.RefreshToken + "\"}"
+           cmd.Sign = myTool.GetSign(cmd)
+           appG.Response(http.StatusOK, cmd)
+        }else{
+           ErrorFeedback(appG, "Need to log-out !", "Get_User_Info - error 3 !")
+           return
+        }
+
+    }else{
+
+       userId, err := myJwt.FetchAuth(tokenAuth)
+       fmt.Println("Get_User_Info - userId  = ", userId)
+       // Create the database handle, confirm driver is present
+       db, err := sql.Open("mysql", db.Cfg.FormatDSN())
+       defer db.Close()
+       if(err != nil){
+      	 ErrorFeedback(appG, "Unexpected error occurred (DataBase) 1 !", "Get_User_Info - connect db error !")
+      	 return
+       }
+
+       // See "Important settings" section.
+       db.SetConnMaxLifetime(time.Minute * 3)
+       db.SetMaxOpenConns(10)
+       db.SetMaxIdleConns(10)
+
+       user_row := db.QueryRow("SELECT * FROM users WHERE id = ?" , userId)
+       if err != nil {
+           ErrorFeedback(appG, "Unexpected error occurred (DataBase) 2 !", "Get_User_Info - Unexpected error occurred (DataBase) 2 !")
+           return
+       }
+
+       var  id int
+       var  accounts string
+       var  password string
+       var  role int
+       var  times string
+
+       err = user_row.Scan(&id, &accounts, &password, &role, &times)
+       fmt.Println("Get_User_Info - find user = ", accounts)
+       if err != nil {
+         ErrorFeedback(appG, "Unexpected error occurred (DataBase) 3 !", "Get_User_Info - Unexpected error occurred (DataBase) 3 !")
+         return
+       }
+       //feedback http request
+       cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.SUCCESS + "\" , \"account\": \"" + accounts + "\", \"id\": " + strconv.Itoa(id) + "}")
+       cmd.Sign = myTool.GetSign(cmd)
+       appG.Response(http.StatusOK, cmd)
+     }
+}

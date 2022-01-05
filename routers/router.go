@@ -20,7 +20,8 @@ func InitRouter() *gin.Engine{
    	router.GET("/", index)
 	router.POST("/api/pi", Connect)
 	router.GET("/api/ws", WSSConnect)
-
+    /** Get User Info **/
+    router.POST("/api/user_info", Get_User_Info)
 	/** Create Account **/
 	router.POST("/api/create_account", CreateAccount)
 	/** Login Account **/
@@ -37,7 +38,8 @@ func InitRouter() *gin.Engine{
     router.POST("/api/logout_account", Logout_account)
     /** Modify Device Name **/
     router.POST("/api/device_name", Modify_Device_Name)
-
+    /** Get Device Info **/
+    router.POST("/api/device_info", Modify_Device_Name)
 	return router
 }
 
