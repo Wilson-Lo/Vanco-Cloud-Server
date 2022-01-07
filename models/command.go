@@ -43,3 +43,4 @@ type DeviceRenameObject struct {
 	Name   string      `json:"name"`
 	Mac   string      `json:"mac"`
 }
+

@@ -76,18 +76,25 @@ func CheckSign(etag string, sign string) bool {
 	return false
 }*/
 
-func SendMsgToMachine(serialNum, msg string) {
+func SendMsgToMachine(serialNum string, msg []byte) {
 	if ws, ok := wsMap[serialNum]; ok {
 		ws.WriteMessage(websocket.TextMessage, []byte(msg))
 	}
 }
+
+
+/*func SendMsgToMachine(serialNum, msg string) {
+	if ws, ok := wsMap[serialNum]; ok {
+		ws.WriteMessage(websocket.TextMessage, []byte(msg))
+	}
+}*/
 
 func SendResponseToHTTPRequest(etag string, cmd models.Command) {
    log.Println("SendResponseToDevice1")
 	if appG, ok := ginMap[etag]; ok {
 	log.Println("SendResponseToDevice2")
 		appG.Response(http.StatusOK, cmd)
-		if c, ok := chanMap["wilson"]; ok {
+		if c, ok := chanMap[etag]; ok {
         			go func() {
         				c <- true
         			}()

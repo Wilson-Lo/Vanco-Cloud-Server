@@ -56,14 +56,14 @@ func DecodeMsg(ws *websocket.Conn, message string) {
           }
 
 	case "cmd":
-	      log.Println("ready to send back to http ")
-		  passervice.SendResponseToHTTPRequest("wilson", cmd)
+	      log.Println("ready to send back to https ")
+		  passervice.SendResponseToHTTPRequest(cmd.Etag, cmd)
 
 
 	default:
 	     log.Println("default ")
 	     cmd.Time = "2021"
-         passervice.SendResponseToHTTPRequest("wilson", cmd)
+         passervice.SendResponseToHTTPRequest(cmd.Etag, cmd)
 	}
 }
 

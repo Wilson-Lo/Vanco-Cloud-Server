@@ -16,6 +16,7 @@ import (
 	"time"
 	"strings"
 	"os"
+	"bytes"
     "strconv"
 	"github.com/gin-gonic/gin"
 	"database/sql"
@@ -39,14 +40,71 @@ func Connect(c *gin.Context) {
     appG := app.Gin{C: c}
     var cmd models.Command
 	err := c.BindJSON(&cmd)
+
 	if err != nil {
        cmd.Body = "fail"
        appG.Response(http.StatusInternalServerError, cmd)
+       ErrorFeedback(appG, "Unexpected error occurred !", "Connect - Unexpected error occurred 1 ")
        return
     }
 
     //var td *jwt.Todo
-    tokenAuth, err := myJwt.ExtractTokenMetadata(c.Request)
+    _, err = myJwt.ExtractTokenMetadata(c.Request)
+    if err != nil {
+
+       fmt.Println("Connect - refresh token  = ", cmd.Extra)
+       //get new token
+       var  tokenGroup = myJwt.Refresh_token(cmd.Extra)
+        if(tokenGroup != nil){
+           fmt.Println("Connect - error 2 ")
+           cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \"Unexpected error occurred !\" }")
+           cmd.Extra = "{ \"access_token\": \"" + tokenGroup.AccessToken + "\" ,  \"refresh_token\": \"" + tokenGroup.RefreshToken + "\"}"
+           cmd.Sign = myTool.GetSign(cmd)
+           appG.Response(http.StatusOK, cmd)
+        }else{
+           ErrorFeedback(appG, "Need to log-out !", "Connect - error 3 !")
+           return
+        }
+    }else{
+
+         var sign = myTool.GetSign(cmd)
+
+         fmt.Println("Cloud Sign = ", sign)
+         fmt.Println("Web Sign = ", cmd.Sign)
+         fmt.Println("etag = ", cmd.Etag)
+
+         if(strings.Compare(sign, cmd.Sign) == 0){
+               fmt.Println("Sign is correct !")
+
+         //   if cmd.Method == "cmd" {
+                //signKey, err := connectService.GenerateSignKey(cmd)
+                //if err != nil {
+                //	cmd.Body = e.FAILURE
+               passervice.AddToGinList(cmd.Etag, appG)
+               reqBodyBytes := new(bytes.Buffer)
+               json.NewEncoder(reqBodyBytes).Encode(cmd)
+               passervice.SendMsgToMachine(cmd.To, reqBodyBytes.Bytes())
+
+               ch := make(chan bool)
+               passervice.AddToChanMap(cmd.Etag, ch)
+               select {
+                  case <-ch:
+                        break
+                  case <-time.After(6 * time.Second):
+                        ErrorFeedback(appG, "Unexpected error occurred !", "Connect - Timeout !")
+                        break
+               }
+         //   }
+         }else{
+            ErrorFeedback(appG, "Unexpected error occurred !", "Connect - error 4 !")
+            return
+        }
+
+    }
+
+
+    //var td *jwt.Todo
+   /* tokenAuth, err := myJwt.ExtractTokenMetadata(c.Request)
     if err != nil {
        ErrorFeedback(appG, "Unauthorized !", "Connect - Unauthorized 1")
        return
@@ -56,29 +114,10 @@ func Connect(c *gin.Context) {
     if err != nil {
        ErrorFeedback(appG, "Unauthorized !", "Connect - Unauthorized 2")
        return
-    }
+    }*/
 
-    fmt.Println("userId " , userId)
-	if cmd.Method == "cmd" {
-		//signKey, err := connectService.GenerateSignKey(cmd)
-		//if err != nil {
-		//	cmd.Body = e.FAILURE
-		passervice.AddToGinList("wilson", appG)
-        passervice.SendMsgToMachine(cmd.To, string("{\"method\":\"" + cmd.Method + "\"}"))
+   // fmt.Println("userId " , userId)
 
-        ch := make(chan bool)
-        passervice.AddToChanMap("wilson", ch)
-        select {
-           case <-ch:
-        		break
-           case <-time.After(10 * time.Second):
-        		cmdRes := models.Command{}
-        		cmdRes.Etag = cmd.Etag
-        		cmdRes.Body = "Timeout"
-        		appG.Response(http.StatusRequestTimeout, cmdRes)
-        		break
-        }
-	}
 		//else {
 		//cmd.Body = "1.0.0"
 		//passervice.AddToGinList("wilson", appG)
@@ -878,3 +917,4 @@ func Get_User_Info(c *gin.Context){
        appG.Response(http.StatusOK, cmd)
      }
 }
+

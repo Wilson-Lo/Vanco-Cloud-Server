@@ -2,10 +2,14 @@ package routers
 
 import (
     "fmt"
+    "bytes"
 	"net/http"
 	"strings"
+    "app/models"
+    "encoding/json"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
+	myTool "app/pkg/tool"
 	wsservice "app/service/wsservice"
 	passervice "app/service/passervice"
 )
@@ -38,12 +42,19 @@ func WSSConnect(c *gin.Context) {
 		   fmt.Println("Websocket read error = ", err.Error())
 		   return
 		}
+
        fmt.Println("wss receive message = " , string(message), "-")
-		if string(message) != "" {
+
+	   if string(message) != "" {
+            var cmd models.Command
 
 			if strings.ToLower(string(message)) == "ping" {
 			    fmt.Println("wss receive ping & send pong back")
-				ws.WriteMessage(websocket.TextMessage, []byte("{\"method\":\"pong\"}"))
+			    cmd.Method = "pong"
+                cmd.Sign = myTool.GetSign(cmd)
+                reqBodyBytes := new(bytes.Buffer)
+                json.NewEncoder(reqBodyBytes).Encode(cmd)
+				ws.WriteMessage(websocket.TextMessage, []byte(reqBodyBytes.Bytes()))
 			} else {
 			    fmt.Println("wss receive something need to feedback to https")
 				if err != nil {
