@@ -387,8 +387,8 @@ func ForgotPassword(c *gin.Context){
         fmt.Println("dt = ", dt)
         //check has token before?
         if(tickets_row.Next()) {
-          fmt.Println("old one to forgot")
-          //delete old token
+           fmt.Println("old one to forgot")
+           //delete old token
            _, err := db.Exec("UPDATE reset_tickets SET token_hash='" + myTool.ToMD5(newToken) + "', time='" + dt + "', token_used=0 WHERE account = '" + accountInfo.Account + "';")
            if err != nil {
              ErrorFeedback(appG, "Unexpected error occurred (DataBase) 5 !", "ForgotPassword - Unexpected error occurred (DataBase) 5 !")
@@ -918,3 +918,98 @@ func Get_User_Info(c *gin.Context){
      }
 }
 
+/**
+* Get Associate Code
+*/
+func Get_Associate_Code(c *gin.Context){
+
+    c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
+    c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
+    c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, accept, origin, Cache-Control, X-Requested-With")
+
+    appG := app.Gin{C: c}
+    var cmd models.Command
+    var deviceInfo models.DeviceRenameObject
+    err := c.BindJSON(&deviceInfo)
+    if err != nil {
+       ErrorFeedback(appG, "Unexpected error occurred !", "Get_Associate_Code - Error 1 !")
+       return
+    }
+
+    fmt.Println("Device mac = ", deviceInfo.Mac)
+
+    // Create the database handle, confirm driver is present
+    db, err := sql.Open("mysql", db.Cfg_device.FormatDSN())
+    defer db.Close()
+    if(err != nil){
+       ErrorFeedback(appG, "Unexpected error occurred !", "Get_Associate_Code - connect db error !")
+       return
+    }
+
+    // See "Important settings" section.
+    db.SetConnMaxLifetime(time.Minute * 3)
+    db.SetMaxOpenConns(10)
+    db.SetMaxIdleConns(10)
+
+    //check device is connected to cloud before
+    device_row := db.QueryRow("SELECT * FROM device_info WHERE mac = ?" , deviceInfo.Mac)
+    if err != nil {
+       ErrorFeedback(appG, "Unexpected error occurred !", "Get_Associate_Code - Unexpected error occurred (DataBase) 2 !")
+       return
+    }
+
+    var  id int
+    var  mac string
+    var  name string
+    var  times string
+    var  type1 int
+    var  user_id string
+
+    err = device_row.Scan(&id, &mac, &name, &times, &type1, &user_id)
+
+    if(err != nil){
+      fmt.Println("not find device")
+      ErrorFeedback(appG, "Please help the device to connect to the Internet !", "Get_Associate_Code - Please help the device to connect to the Internet !")
+      return
+   }
+
+   dt := time.Now()
+   formatted := fmt.Sprintf("%d-%02d-%02d %02d:%02d:%02d%02d",
+               dt.Year(), dt.Month(), dt.Day(), dt.Hour(), dt.Minute(), dt.Second(), dt.Nanosecond())
+   var associate_code = myTool.ToMD5(formatted + deviceInfo.Mac)[0:8]
+   fmt.Println("associate_code = ", associate_code)
+
+   //check device is exist in table - device_associate_code
+   associate_code_row := db.QueryRow("SELECT * FROM device_associate_code WHERE mac = ?" , deviceInfo.Mac)
+   if err != nil {
+      ErrorFeedback(appG, "Unexpected error occurred !", "Get_Associate_Code - Unexpected error occurred (DataBase) 3 !")
+      return
+   }
+
+   fmt.Println("associate_code = ", associate_code)
+   var  get_associate_code string
+   var  code_used int
+   err1 := associate_code_row.Scan(&id, &mac, &get_associate_code, &times, &code_used)
+
+   if err1 != nil  && err != sql.ErrNoRows {
+      fmt.Println("new one for device_associate_code : ")
+      _, err := db.Exec("INSERT INTO device_associate_code (mac, associate_code, time, code_used) VALUES (?, ?, ?, ?)", deviceInfo.Mac, associate_code, time.Now().Format("2006-01-02 15:04:05"),  0)
+      if err != nil {
+           fmt.Println("error = ", err.Error())
+           ErrorFeedback(appG, "Get associate code failed !", "Get_Associate_Code - Insert new error!" )
+           return
+      }
+   }else{
+      fmt.Println("old one for device_associate_code ")
+      _, err := db.Exec("UPDATE device_associate_code SET associate_code='" + associate_code + "', code_used=0 WHERE mac = '" + deviceInfo.Mac + "';")
+      if err != nil {
+         ErrorFeedback(appG, "Unexpected error occurred !", "Get_Associate_Code - Unexpected error occurred (DataBase) 4 !")
+         return
+      }
+   }
+
+   //feedback http request
+   cmd.Extra = associate_code
+   cmd.Sign = myTool.GetSign(cmd)
+   appG.Response(http.StatusOK, cmd)
+}

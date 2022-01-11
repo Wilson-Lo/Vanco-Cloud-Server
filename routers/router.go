@@ -38,7 +38,8 @@ func InitRouter() *gin.Engine{
     router.POST("/api/logout_account", Logout_account)
     /** Modify Device Name **/
     router.POST("/api/device_name", Modify_Device_Name)
-
+    /** Get Associate Code **/
+    router.POST("/api/associate_code", Get_Associate_Code)
 	return router
 }
 

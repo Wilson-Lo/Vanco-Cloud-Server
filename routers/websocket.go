@@ -4,7 +4,7 @@ import (
     "fmt"
     "bytes"
 	"net/http"
-	"strings"
+	//"strings"
     "app/models"
     "encoding/json"
 	"github.com/gin-gonic/gin"
@@ -43,12 +43,15 @@ func WSSConnect(c *gin.Context) {
 		   return
 		}
 
-       fmt.Println("wss receive message = " , string(message), "-")
+      // fmt.Println("wss receive message = " , string(message), "-")
 
 	   if string(message) != "" {
-            var cmd models.Command
 
-			if strings.ToLower(string(message)) == "ping" {
+            var cmd models.Command
+            json.Unmarshal(message, &cmd)
+            fmt.Println("WSSConnect method = ", cmd.Method)
+
+			if cmd.Method == "ping" {
 			    fmt.Println("wss receive ping & send pong back")
 			    cmd.Method = "pong"
                 cmd.Sign = myTool.GetSign(cmd)

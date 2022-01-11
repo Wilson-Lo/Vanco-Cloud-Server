@@ -80,3 +80,13 @@ func RemoveLastRune(s string) string {
     r := []rune(s)
     return string(r[:len(r)-1])
 }
+
+/**
+*  Get Time Now
+*/
+func GetTimeNow() string{
+   dt := time.Now()
+   formatted := fmt.Sprintf("%d-%02d-%02d %02d:%02d:%02d%",
+               dt.Year(), dt.Month(), dt.Day(), dt.Hour(), dt.Minute(), dt.Second())
+   return formatted
+}
