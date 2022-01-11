@@ -44,3 +44,7 @@ type DeviceRenameObject struct {
 	Mac   string      `json:"mac"`
 }
 
+type AddDeviceObject struct {
+    RefreshToken   string      `json:"refresh_token"`
+	AssociateCode   string      `json:"associate_code"`
+}

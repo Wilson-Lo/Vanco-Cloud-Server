@@ -20,6 +20,7 @@ func InitRouter() *gin.Engine{
    	router.GET("/", index)
 	router.POST("/api/pi", Connect)
 	router.GET("/api/ws", WSSConnect)
+
     /** Get User Info **/
     router.POST("/api/user_info", Get_User_Info)
 	/** Create Account **/
@@ -40,6 +41,9 @@ func InitRouter() *gin.Engine{
     router.POST("/api/device_name", Modify_Device_Name)
     /** Get Associate Code **/
     router.POST("/api/associate_code", Get_Associate_Code)
+    /** Add Device Under User Account **/
+    router.POST("/api/add_device", AddDevice)
+
 	return router
 }
 

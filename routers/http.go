@@ -919,7 +919,7 @@ func Get_User_Info(c *gin.Context){
 }
 
 /**
-* Get Associate Code
+* Get Associate Code ( Device use only, so not need to check JWT )
 */
 func Get_Associate_Code(c *gin.Context){
 
@@ -1012,4 +1012,123 @@ func Get_Associate_Code(c *gin.Context){
    cmd.Extra = associate_code
    cmd.Sign = myTool.GetSign(cmd)
    appG.Response(http.StatusOK, cmd)
+}
+
+/**
+* Add Device under user account
+*/
+func AddDevice(c *gin.Context){
+
+     appG := app.Gin{C: c}
+     var cmd models.Command
+     var addDeviceObject models.AddDeviceObject
+     err := c.BindJSON(&addDeviceObject)
+     if(err != nil){
+        ErrorFeedback(appG, "Unexpected error occurred !", "Add Device - error 1 !")
+        return
+     }
+
+     //var td *jwt.Todo
+     tokenAuth, err := myJwt.ExtractTokenMetadata(c.Request)
+     if err != nil {
+        fmt.Println("AddDevice - refresh token  = ", addDeviceObject.RefreshToken)
+        //get new token
+        var  tokenGroup = myJwt.Refresh_token(addDeviceObject.RefreshToken)
+        if(tokenGroup != nil){
+           fmt.Println("AddDevice - error 2 ")
+           cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \"Add Device error 2 !\" }")
+           cmd.Extra = "{ \"access_token\": \"" + tokenGroup.AccessToken + "\" ,  \"refresh_token\": \"" + tokenGroup.RefreshToken + "\"}"
+           cmd.Sign = myTool.GetSign(cmd)
+           appG.Response(http.StatusOK, cmd)
+        }else{
+            ErrorFeedback(appG, "Need to log-out !", "AddDevice - error 2 !")
+            return
+        }
+
+    }else{
+
+       userId, err := myJwt.FetchAuth(tokenAuth)
+       if err != nil {
+          ErrorFeedback(appG, "Unauthorized !", "Add Device - unauthorized !")
+          return
+       }
+
+       // Create the database handle, confirm driver is present
+       db, err := sql.Open("mysql", db.Cfg_device.FormatDSN())
+       defer db.Close()
+       if(err != nil){
+         ErrorFeedback(appG, "Unexpected error occurred !", "Add Device - connect db error !")
+         return
+       }
+
+       // See "Important settings" section.
+       db.SetConnMaxLifetime(time.Minute * 3)
+       db.SetMaxOpenConns(10)
+       db.SetMaxIdleConns(10)
+
+       var  id int
+       var  mac string
+       var  times string
+       var  get_associate_code string
+       var  code_used int
+
+      fmt.Println("AssociateCode code = ", addDeviceObject.AssociateCode)
+
+      //check device is exist in table - device_associate_code
+      associate_code_row := db.QueryRow("SELECT * FROM device_associate_code WHERE associate_code = ?" , addDeviceObject.AssociateCode)
+      if err != nil {
+        ErrorFeedback(appG, "Unexpected error occurred !", "Add Device - Unexpected error occurred (DataBase) 1 !")
+        return
+      }
+
+      err1 := associate_code_row.Scan(&id, &mac, &get_associate_code, &times, &code_used)
+      if err1 != nil  && err != sql.ErrNoRows {
+         //no one has this associate code
+         ErrorFeedback(appG, "The associate code has expired !", "Add Device - No one has this associate code !" )
+         return
+     }
+
+     //check code is used or not
+     if(code_used == 1){
+        ErrorFeedback(appG, "The associate code has expired !", "Add Device - associate code is used !" )
+        return
+     }
+
+     //check time
+     codeExpireTime, errParse := time.ParseInLocation("2006-01-02 15:04:05", times, time.Local)
+     if errParse != nil {
+        ErrorFeedback(appG, "Unexpected error occurred !", "Add Device - error 3 !")
+        return
+     }
+
+     dt := time.Now()
+     fmt.Println("codeExpireTime = ", codeExpireTime)
+     elapsed := dt.Sub(codeExpireTime)
+     h, _ := time.ParseDuration(myTool.ShortDur(elapsed))
+
+     fmt.Println("h = ", h)
+     if(h.Seconds() > 300){//over 5 mins
+        ErrorFeedback(appG, "This Code has expired !", "Add Device - This Code has expired !")
+        return
+     }else{
+        //add device to user by user id
+        _, err := db.Exec("UPDATE device_info SET user_id=" + strconv.Itoa(int(userId)) + " WHERE mac = '" + mac + "';")
+        if err != nil {
+           ErrorFeedback(appG, "Unexpected error occurred !", "Add Device - Unexpected error occurred (DataBase) 2 !")
+           return
+        }
+
+        //associate code to be used
+        _, err2 := db.Exec("UPDATE device_associate_code SET code_used=1 WHERE associate_code = '" + get_associate_code + "';")
+        if err2 != nil {
+           ErrorFeedback(appG, "Unexpected error occurred !", "Add Device - Unexpected error occurred (DataBase) 3 !")
+           return
+        }
+
+       //feedback http request
+       cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.SUCCESS + "\" , \"message\": \"Add Device successful !\"}")
+       cmd.Sign = myTool.GetSign(cmd)
+       appG.Response(http.StatusOK, cmd)
+      }
+   }
 }
