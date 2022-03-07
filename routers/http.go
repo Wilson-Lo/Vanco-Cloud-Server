@@ -912,7 +912,7 @@ func Get_User_Info(c *gin.Context){
          return
        }
        //feedback http request
-       cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.SUCCESS + "\" , \"account\": \"" + accounts + "\", \"id\": " + strconv.Itoa(id) + "}")
+       cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.SUCCESS + "\" , \"account\": \"" + accounts + "\", \"id\": " + strconv.Itoa(id) + ", \"permission\": " + strconv.Itoa(role) + "}")
        cmd.Sign = myTool.GetSign(cmd)
        appG.Response(http.StatusOK, cmd)
      }
@@ -923,10 +923,10 @@ func Get_User_Info(c *gin.Context){
 */
 func Get_Associate_Code(c *gin.Context){
 
-    c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
+/*    c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
     c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
     c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, accept, origin, Cache-Control, X-Requested-With")
-
+*/
     appG := app.Gin{C: c}
     var cmd models.Command
     var deviceInfo models.DeviceRenameObject
@@ -1131,4 +1131,196 @@ func AddDevice(c *gin.Context){
        appG.Response(http.StatusOK, cmd)
       }
    }
+}
+
+/**
+*   Get Device List By User
+*/
+func GetDeviceList(c *gin.Context){
+
+    appG := app.Gin{C: c}
+    var cmd models.Command
+    var refreshToken models.RefreshTokenObject
+
+    //var td *jwt.Todo
+    tokenAuth, err := myJwt.ExtractTokenMetadata(c.Request)
+    if err != nil {
+        fmt.Println("GetDeviceList - need to refresh token")
+        err := c.BindJSON(&refreshToken)
+        if(err != nil){
+          ErrorFeedback(appG, "Get Device error 1 !", "GetDeviceList - Get Device error 1 !")
+          return
+        }
+        fmt.Println("GetDeviceList - refresh token  = ", refreshToken.RefreshToken)
+        //get new token
+        var  tokenGroup = myJwt.Refresh_token(refreshToken.RefreshToken)
+        if(tokenGroup != nil){
+           fmt.Println("GetDeviceList - error 2 - feedback new token")
+           cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \"Get Device error 2 !\" }")
+           cmd.Extra = "{ \"access_token\": \"" + tokenGroup.AccessToken + "\" ,  \"refresh_token\": \"" + tokenGroup.RefreshToken + "\"}"
+           cmd.Sign = myTool.GetSign(cmd)
+           appG.Response(http.StatusOK, cmd)
+        }else{
+           ErrorFeedback(appG, "Need to log-out !", "GetDeviceList - Get Device error 3 !")
+           return
+        }
+    }else{
+       userId, err := myJwt.FetchAuth(tokenAuth)
+       if err != nil {
+          ErrorFeedback(appG, "Unauthorized !", "GetDeviceList - unauthorized !")
+          return
+       }
+
+      // var deviceMap map[string] models.DeviceInfoObject
+       // Create the database handle, confirm driver is present
+       db, err := sql.Open("mysql", db.Cfg_device.FormatDSN())
+       if(err != nil){
+          ErrorFeedback(appG, "Get Device error 4 !", "GetDeviceList - Get Device error 4 !")
+          return
+       }
+       defer db.Close()
+
+       // See "Important settings" section.
+       db.SetConnMaxLifetime(time.Minute * 3)
+       db.SetMaxOpenConns(10)
+       db.SetMaxIdleConns(10)
+
+       sql, errDB := db.Query("SELECT * FROM device_info")
+       if errDB != nil {
+           ErrorFeedback(appG, "Get Device error 5 !", "GetDeviceList - Get Device error 5 !")
+           return
+       }
+
+       defer sql.Close()
+       var device_list = ""
+
+       //get all device
+       for sql.Next() {
+
+         var deviceInfo models.DeviceInfoObject
+         err := sql.Scan(&deviceInfo.ID, &deviceInfo.Mac, &deviceInfo.Name, &deviceInfo.Time, &deviceInfo.Type, &deviceInfo.UserId)
+
+         if err != nil {
+            ErrorFeedback(appG, "Get Device error 6 !", "GetDeviceList - Get Device error 6 !")
+            return
+         }
+
+         if(deviceInfo.UserId != int(userId)){
+         }else{
+           if(passervice.IsDeviceOnline(deviceInfo.Mac)){
+              device_list += " {\"mac\": \"" + deviceInfo.Mac +  "\",\"status\": true ,\"user_id\": " + strconv.Itoa(deviceInfo.UserId) +  ",\"type\": " + strconv.Itoa(deviceInfo.Type) + ",\"name\": \"" + deviceInfo.Name + "\"} ,"
+           }else{
+              device_list += " {\"mac\": \"" + deviceInfo.Mac +  "\",\"status\": false ,\"user_id\": " + strconv.Itoa(deviceInfo.UserId) +  ",\"type\": " + strconv.Itoa(deviceInfo.Type) + ",\"name\": \"" + deviceInfo.Name + "\"} ,"
+           }
+
+         }
+      }
+
+      device_list = myTool.RemoveLastRune(device_list)
+      //fmt.Println("GetDeviceList - device_list ", "{\"result\": \"" + e.SUCCESS + "\" , \"message\": \"Get device list !\", \"device_list\":[" + device_list + "]}")
+      fmt.Println("GetDeviceList - userId ", userId)
+      cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.SUCCESS + "\" , \"message\": \"Get device list !\", \"device_list\":[" + device_list + "]}")
+      cmd.Sign = myTool.GetSign(cmd)
+      appG.Response(http.StatusOK, cmd)
+    }
+}
+
+/**
+*   Remove Device By User
+*/
+func RemoveDevice(c *gin.Context){
+
+    appG := app.Gin{C: c}
+    var cmd models.Command
+    var requestInfo models.DeviceRenameObject
+    err := c.BindJSON(&requestInfo)
+    if(err != nil){
+       ErrorFeedback(appG, "Unexpected error occurred !", "RemoveDevice - error 1 !")
+       return
+    }
+    //var td *jwt.Todo
+    tokenAuth, err := myJwt.ExtractTokenMetadata(c.Request)
+    if err != nil {
+        fmt.Println("Remove Device - need to refresh token")
+        err := c.BindJSON(&requestInfo)
+        if(err != nil){
+          ErrorFeedback(appG, "Remove Device error 1 !", "RemoveDevice - Get Device error 2 !")
+          return
+        }
+        //get new token
+        var  tokenGroup = myJwt.Refresh_token(requestInfo.RefreshToken)
+        if(tokenGroup != nil){
+           fmt.Println("Remove Device - error 2 - feedback new token")
+           cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.FAILURE + "\" , \"message\": \"Get Device error 3 !\" }")
+           cmd.Extra = "{ \"access_token\": \"" + tokenGroup.AccessToken + "\" ,  \"refresh_token\": \"" + tokenGroup.RefreshToken + "\"}"
+           cmd.Sign = myTool.GetSign(cmd)
+           appG.Response(http.StatusOK, cmd)
+        }else{
+           ErrorFeedback(appG, "Need to log-out !", "RemoveDevice - Get Device error 4!")
+           return
+        }
+    }else{
+
+       userId, err := myJwt.FetchAuth(tokenAuth)
+       fmt.Println("userId=",userId)
+       if err != nil {
+          ErrorFeedback(appG, "Unauthorized !", "RemoveDevice - unauthorized 5!")
+          return
+       }
+
+      // var deviceMap map[string] models.DeviceInfoObject
+      // Create the database handle, confirm driver is present
+      db, err := sql.Open("mysql", db.Cfg_device.FormatDSN())
+      if(err != nil){
+          ErrorFeedback(appG, "Remove Deviceerror 4 !", "RemoveDevice - Get Device error 6 !")
+          return
+      }
+
+      db.SetConnMaxLifetime(time.Minute * 3)
+      db.SetMaxOpenConns(10)
+      db.SetMaxIdleConns(10)
+
+      sql, errDB := db.Query("SELECT * FROM device_info")
+      if errDB != nil {
+         ErrorFeedback(appG, "Remove Device error 5 !", "RemoveDevice - Get Device error 7 !")
+         return
+      }
+
+      defer sql.Close()
+
+      //get all device
+      for sql.Next() {
+
+               var deviceInfo models.DeviceInfoObject
+               err := sql.Scan(&deviceInfo.ID, &deviceInfo.Mac, &deviceInfo.Name, &deviceInfo.Time, &deviceInfo.Type, &deviceInfo.UserId)
+
+               if err != nil {
+                  ErrorFeedback(appG, "Remove Device error 6 !", "RemoveDevice - Get Device error 8 !")
+                  return
+               }
+               fmt.Println("device user id = ", deviceInfo.UserId)
+               if(int(deviceInfo.UserId) != int(userId)){
+               }else{
+                 //user register device
+                 if(strings.Compare(deviceInfo.Mac, requestInfo.Mac) == 0 ){
+
+                      _, err := db.Exec("UPDATE device_info SET user_id=-1 WHERE mac = '" + requestInfo.Mac + "';")
+                      if err != nil {
+                        ErrorFeedback(appG, "Unexpected error occurred (DataBase) !", "RemoveDevice- Unexpected error occurred (DataBase) !")
+                        return
+                      }
+
+                      _, err1 := db.Exec("UPDATE device_info SET time='" + time.Now().Format("2006-01-02 15:04:05") + "' WHERE mac = '" + requestInfo.Mac + "';")
+                       if err1 != nil {
+                          ErrorFeedback(appG, "Unexpected error occurred (DataBase) !", "RemoveDevice- Unexpected error occurred (DataBase) !")
+                          return
+                      }
+                 }
+               }
+      }
+
+      cmd.Body = myTool.EncryptionData("{\"result\": \"" + e.SUCCESS + "\" , \"message\": \"Unlink Device Successful !\"}")
+      cmd.Sign = myTool.GetSign(cmd)
+      appG.Response(http.StatusOK, cmd)
+    }
 }
